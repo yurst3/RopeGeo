@@ -36,6 +36,12 @@ bundle install
 cd ios && bundle exec pod install && cd ..
 ```
 
+Make the Mapbox token-injection script executable (required for the iOS build to succeed):
+
+```bash
+chmod +x ios/scripts/inject-mapbox-token.sh
+```
+
 If you hit Ruby/Bundler or CocoaPods errors, see the project’s troubleshooting notes or ask the team.
 
 ---

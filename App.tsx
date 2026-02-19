@@ -1,44 +1,32 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import { MapView, Camera } from '@rnmapbox/maps';
+import { StyleSheet, Platform } from 'react-native';
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
-
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
-
+const App = () => {
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
-  );
-}
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
+    <MapView
+      styleURL={"mapbox://styles/mapbox/standard"}
+      style={styles.map}
+      projection='globe'
+      scaleBarEnabled={false}
+      logoPosition={Platform.OS === 'android' ? { bottom: 40, left: 10 } : undefined}
+      attributionPosition={Platform.OS === 'android' ? { bottom: 40, right: 10 } : undefined}
+    >
+      <Camera
+        defaultSettings={{
+          centerCoordinate: [-43.2268, -22.9358],
+          zoomLevel: 12.1,
+          pitch: 70,
+          heading: -161.81,
+        }}
       />
-    </View>
+    </MapView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: {
+  map: {
     flex: 1,
+    width: '100%',
   },
 });
 
