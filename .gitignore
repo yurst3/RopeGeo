@@ -66,6 +66,10 @@ yarn-error.log
 # testing
 /coverage
 
+# Mapbox access token (never commit)
+.mapbox
+**/developer-config.xml
+
 # Yarn
 .yarn/*
 !.yarn/patches

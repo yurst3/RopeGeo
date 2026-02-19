@@ -1,4 +1,4 @@
-package com.mymapboxapp
+package com.ropegeo
 
 import android.app.Application
 import com.facebook.react.PackageList

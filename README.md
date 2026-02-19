@@ -1,97 +1,87 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# RopeGeo
 
-# Getting Started
+Onboarding guide for new developers. This repo is a React Native app using Mapbox maps.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+---
 
-## Step 1: Start Metro
+## Prerequisites
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+Install these before setting up the project:
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+| Requirement | Notes |
+|-------------|--------|
+| **Node.js** | `>= 22.11.0` (check with `node -v`). Use [nvm](https://github.com/nvm-sh/nvm) or [nodejs.org](https://nodejs.org). |
+| **npm** | Comes with Node. |
+| **Git** | For cloning and version control. |
+| **Xcode** (macOS only) | For iOS builds and **iOS Simulator**. Install from the App Store; then install the iOS Simulator via Xcode → Settings → Platforms. |
+| **Android Studio** | For Android builds and **Android Emulator**. Install from [developer.android.com/studio](https://developer.android.com/studio). During setup, install the Android SDK and at least one system image (e.g. Pixel 6, API 34). |
+| **Ruby** | Used for CocoaPods on iOS. macOS has a system Ruby; for fewer issues, [rbenv](https://github.com/rbenv/rbenv) or [Homebrew Ruby](https://formulae.brew/formula/ruby) is recommended. |
 
-```sh
-# Using npm
-npm start
+---
 
-# OR using Yarn
-yarn start
+## 1. Clone and install dependencies
+
+```bash
+git clone <repo-url>
+cd RopeGeo
+npm install
 ```
 
-## Step 2: Build and run your app
+### iOS (macOS only)
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+From the project root:
 
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
+```bash
 bundle install
+cd ios && bundle exec pod install && cd ..
 ```
 
-Then, and every time you update your native dependencies, run:
+If you hit Ruby/Bundler or CocoaPods errors, see the project’s troubleshooting notes or ask the team.
 
-```sh
-bundle exec pod install
-```
+---
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## 2. Mapbox access token (required to run the app)
 
-```sh
-# Using npm
-npm run ios
+**You need a Mapbox access token to build and run the app.** Tokens are not in the repo for security.
 
-# OR using Yarn
-yarn ios
-```
+- **Get a token:** Ask **Ethan** for the RopeGeo Mapbox access token.
+- **Where to put it:** Follow **[docs/MAPBOX_ACCESS_TOKEN.md](docs/MAPBOX_ACCESS_TOKEN.md)**. Summary:
+  - **iOS:** Create a file named `.mapbox` in the **project root** (same folder as `package.json`) and paste in the token as a single line. This file is gitignored.
+  - **Android:** Create `android/app/src/main/res/values/developer-config.xml` with the token (see the doc). That file is gitignored.
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+Do not add the token to `Info.plist`, `mapbox_access_token.xml`, or any file that gets committed.
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+---
 
-## Step 3: Modify your app
+## 3. Run the app
 
-Now that you have successfully run the app, let's make changes!
+1. **Start Metro** (from the project root):
+   ```bash
+   npm start
+   ```
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+2. In another terminal, run the app:
+   - **iOS:** `npm run ios` (uses the iOS Simulator if no device is connected).
+   - **Android:** `npm run android` (uses the Android Emulator if no device is connected).
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+Make sure an iOS Simulator or Android Emulator is running (or a device is connected) before running the app command.
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+---
 
-## Congratulations! :tada:
+## Quick reference
 
-You've successfully run and modified your React Native App. :partying_face:
+| Task | Command |
+|------|--------|
+| Install JS dependencies | `npm install` |
+| Install iOS pods | `bundle install` then `cd ios && bundle exec pod install` |
+| Start Metro | `npm start` |
+| Run on iOS | `npm run ios` |
+| Run on Android | `npm run android` |
+| Lint | `npm run lint` |
 
-### Now what?
+---
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+## Need help?
 
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- **Mapbox token or access:** Ask **Ethan**.
+- **Setup or build issues:** Check with the team or open an issue in the repo.
