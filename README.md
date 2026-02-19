@@ -1,93 +1,68 @@
-# RopeGeo
+# Welcome to your Expo app 👋
 
-Onboarding guide for new developers. This repo is a React Native app using Mapbox maps.
+This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
----
+## Get started
 
-## Prerequisites
+1. Install dependencies
 
-Install these before setting up the project:
-
-| Requirement | Notes |
-|-------------|--------|
-| **Node.js** | `>= 22.11.0` (check with `node -v`). Use [nvm](https://github.com/nvm-sh/nvm) or [nodejs.org](https://nodejs.org). |
-| **npm** | Comes with Node. |
-| **Git** | For cloning and version control. |
-| **Xcode** (macOS only) | For iOS builds and **iOS Simulator**. Install from the App Store; then install the iOS Simulator via Xcode → Settings → Platforms. |
-| **Android Studio** | For Android builds and **Android Emulator**. Install from [developer.android.com/studio](https://developer.android.com/studio). During setup, install the Android SDK and at least one system image (e.g. Pixel 6, API 34). |
-| **Ruby** | Used for CocoaPods on iOS. macOS has a system Ruby; for fewer issues, [rbenv](https://github.com/rbenv/rbenv) or [Homebrew Ruby](https://formulae.brew/formula/ruby) is recommended. |
-
----
-
-## 1. Clone and install dependencies
-
-```bash
-git clone <repo-url>
-cd RopeGeo
-npm install
-```
-
-### iOS (macOS only)
-
-From the project root:
-
-```bash
-bundle install
-cd ios && bundle exec pod install && cd ..
-```
-
-Make the Mapbox token-injection script executable (required for the iOS build to succeed):
-
-```bash
-chmod +x ios/scripts/inject-mapbox-token.sh
-```
-
-If you hit Ruby/Bundler or CocoaPods errors, see the project’s troubleshooting notes or ask the team.
-
----
-
-## 2. Mapbox access token (required to run the app)
-
-**You need a Mapbox access token to build and run the app.** Tokens are not in the repo for security.
-
-- **Get a token:** Ask **Ethan** for the RopeGeo Mapbox access token.
-- **Where to put it:** Follow **[docs/MAPBOX_ACCESS_TOKEN.md](docs/MAPBOX_ACCESS_TOKEN.md)**. Summary:
-  - **iOS:** Create a file named `.mapbox` in the **project root** (same folder as `package.json`) and paste in the token as a single line. This file is gitignored.
-  - **Android:** Create `android/app/src/main/res/values/developer-config.xml` with the token (see the doc). That file is gitignored.
-
-Do not add the token to `Info.plist`, `mapbox_access_token.xml`, or any file that gets committed.
-
----
-
-## 3. Run the app
-
-1. **Start Metro** (from the project root):
    ```bash
-   npm start
+   npm install
    ```
 
-2. In another terminal, run the app:
-   - **iOS:** `npm run ios` (uses the iOS Simulator if no device is connected).
-   - **Android:** `npm run android` (uses the Android Emulator if no device is connected).
+2. Start the app
 
-Make sure an iOS Simulator or Android Emulator is running (or a device is connected) before running the app command.
+   ```bash
+   npx expo start
+   ```
 
----
+In the output, you'll find options to open the app in a
 
-## Quick reference
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-| Task | Command |
-|------|--------|
-| Install JS dependencies | `npm install` |
-| Install iOS pods | `bundle install` then `cd ios && bundle exec pod install` |
-| Start Metro | `npm start` |
-| Run on iOS | `npm run ios` |
-| Run on Android | `npm run android` |
-| Lint | `npm run lint` |
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
----
+## Mapbox maps (iOS / Android)
 
-## Need help?
+This app uses [@rnmapbox/maps](https://rnmapbox.github.io/docs/install) with Expo. It **cannot run in Expo Go** because it uses custom native code.
 
-- **Mapbox token or access:** Ask **Ethan**.
-- **Setup or build issues:** Check with the team or open an issue in the repo.
+1. **Generate native projects** (required before running on device/simulator):
+   ```bash
+   npx expo prebuild --clean
+   ```
+   If you see **`pod install` failed** / **spawn pod ENOENT**, the CocoaPods CLI wasn’t on the PATH of the process Expo used. Prebuild still succeeded. If `pod` is not found in a new terminal either, add the Ruby gem executables directory to your PATH (one-time), then run `pod install`:
+   ```bash
+   echo 'export PATH="$(ruby -e '\''puts Gem.bindir'\''):$PATH"' >> ~/.zshrc
+   source ~/.zshrc
+   cd ios && pod install
+   ```
+2. **Mapbox access token:** Get a token from [Mapbox](https://account.mapbox.com/access-tokens/) and add it per [@rnmapbox/maps credentials](https://rnmapbox.github.io/docs/install) (e.g. `.mapbox` in project root for iOS, or your chosen method). Without a token, the map may not load.
+
+After prebuild (and `pod install` if needed), run **iOS** with `npx expo run:ios` and **Android** with `npx expo run:android` (development builds).
+
+## Get a fresh project
+
+When you're ready, run:
+
+```bash
+npm run reset-project
+```
+
+This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+
+## Learn more
+
+To learn more about developing your project with Expo, look at the following resources:
+
+- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
+- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+
+## Join the community
+
+Join our community of developers creating universal apps.
+
+- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
+- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
