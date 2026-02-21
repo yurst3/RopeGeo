@@ -183,7 +183,10 @@ export default function ExploreScreen() {
                   zoomLevel: DEFAULT_ZOOM,
                 }}
               />
-              <RouteMarkersLayer onStateChange={setRoutesState} />
+              <RouteMarkersLayer
+                onStateChange={setRoutesState}
+                cameraRef={cameraRef}
+              />
         </MapView>
         <ResetMapOrientationButton
           onPress={resetPitchAndHeading}
