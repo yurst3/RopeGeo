@@ -1,10 +1,18 @@
 import { ResetMapOrientationButton } from "@/components/buttons/ResetMapOrientationButton";
 import { ResetMapPositionButton } from "@/components/buttons/ResetMapPositionButton";
+import { RequestToastNotifier } from "@/components/RequestToastNotifier";
+import { RouteMarkersLayer } from "@/components/RouteMarkersLayer";
+import type { RoutesGeoJSON } from "@/components/RouteMarkersLayer";
 import { Camera, LocationPuck, MapView } from "@rnmapbox/maps";
 import * as Location from "expo-location";
 import type { ComponentRef } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Default map center when location is unavailable (Moab, UT). [lng, lat]. */
@@ -25,6 +33,11 @@ export default function ExploreScreen() {
   >(undefined);
   const [cameraZoom, setCameraZoom] = useState<number | undefined>(undefined);
   const [followCurrentPosition, setFollowCurrentPosition] = useState(true);
+  const [routesState, setRoutesState] = useState<{
+    loading: boolean;
+    data: RoutesGeoJSON | null;
+    errors: Error | null;
+  }>({ loading: true, data: null, errors: null });
 
   const defaultCenter = currentPosition ?? DEFAULT_CURRENT_POSITION;
   const isCompassVisible =
@@ -117,53 +130,73 @@ export default function ExploreScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <MapView
-        styleURL="mapbox://styles/mapbox/outdoors-v12"
-        style={styles.map}
-        projection="globe"
-        scaleBarEnabled={false}
-        logoPosition={Platform.OS === "android" ? { bottom: 40, left: 10 } : undefined}
-        attributionPosition={Platform.OS === "android" ? { bottom: 40, right: 10 } : undefined}
-        onCameraChanged={(state) => {
-          const { pitch: p, heading: h, center, zoom } = state.properties;
-          setPitch(p);
-          setHeading(h);
-          setCameraCenter(center as [number, number]);
-          setCameraZoom(zoom);
-          // User moved the map (center or zoom differs from default) → stop following.
-          const centerCoord = center as [number, number];
-          if (
-            centerCoord != null &&
-            zoom != null &&
-            (Math.abs(centerCoord[0] - defaultCenter[0]) > 1e-5 ||
-              Math.abs(centerCoord[1] - defaultCenter[1]) > 1e-5 ||
-              Math.abs(zoom - DEFAULT_ZOOM) > 0.01)
-          ) {
-            setFollowCurrentPosition(false);
-          }
-        }}
-      >
-        <LocationPuck />
-        <Camera
-          ref={cameraRef}
-          defaultSettings={{
-            centerCoordinate: currentPosition ?? DEFAULT_CURRENT_POSITION,
-            zoomLevel: DEFAULT_ZOOM,
-          }}
+    <>
+      <RequestToastNotifier
+        loading={routesState.loading}
+        data={routesState.data}
+        errors={routesState.errors}
+        successMessage={(data) =>
+          `Successfully loaded ${data.features.length} routes.`
+        }
+        topOffset={insets.top}
+      />
+      <View style={styles.container}>
+        {routesState.loading && (
+          <View
+            style={[styles.loadingOverlay, { paddingTop: insets.top + 16 }]}
+            pointerEvents="none"
+          >
+            <ActivityIndicator size="large" />
+          </View>
+        )}
+        <MapView
+              styleURL="mapbox://styles/mapbox/outdoors-v12"
+              style={styles.map}
+              projection="globe"
+              scaleBarEnabled={false}
+              logoPosition={Platform.OS === "android" ? { bottom: 40, left: 10 } : undefined}
+              attributionPosition={Platform.OS === "android" ? { bottom: 40, right: 10 } : undefined}
+              onCameraChanged={(state) => {
+                const { pitch: p, heading: h, center, zoom } = state.properties;
+                setPitch(p);
+                setHeading(h);
+                setCameraCenter(center as [number, number]);
+                setCameraZoom(zoom);
+                // User moved the map (center or zoom differs from default) → stop following.
+                const centerCoord = center as [number, number];
+                if (
+                  centerCoord != null &&
+                  zoom != null &&
+                  (Math.abs(centerCoord[0] - defaultCenter[0]) > 1e-5 ||
+                    Math.abs(centerCoord[1] - defaultCenter[1]) > 1e-5 ||
+                    Math.abs(zoom - DEFAULT_ZOOM) > 0.01)
+                ) {
+                  setFollowCurrentPosition(false);
+                }
+              }}
+            >
+              <LocationPuck />
+              <Camera
+                ref={cameraRef}
+                defaultSettings={{
+                  centerCoordinate: currentPosition ?? DEFAULT_CURRENT_POSITION,
+                  zoomLevel: DEFAULT_ZOOM,
+                }}
+              />
+              <RouteMarkersLayer onStateChange={setRoutesState} />
+        </MapView>
+        <ResetMapOrientationButton
+          onPress={resetPitchAndHeading}
+          visible={isCompassVisible}
+          top={insets.top + 16}
         />
-      </MapView>
-      <ResetMapOrientationButton
-        onPress={resetPitchAndHeading}
-        visible={isCompassVisible}
-        top={insets.top + 16}
-      />
-      <ResetMapPositionButton
-        onPress={resetPosition}
-        visible={isPositionButtonVisible}
-        top={insets.top + 16 + 48 + 8}
-      />
-    </View>
+        <ResetMapPositionButton
+          onPress={resetPosition}
+          visible={isPositionButtonVisible}
+          top={insets.top + 16 + 48 + 8}
+        />
+      </View>
+    </>
   );
 }
 
@@ -174,5 +207,13 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
     width: "100%",
+  },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 1,
   },
 });
