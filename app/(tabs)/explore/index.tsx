@@ -1,8 +1,12 @@
 import { ResetMapOrientationButton } from "@/components/buttons/ResetMapOrientationButton";
 import { ResetMapPositionButton } from "@/components/buttons/ResetMapPositionButton";
+import {
+  RouteMarkersLayer,
+  type RoutesGeoJSON,
+} from "@/components/MapLayers/RouteMarkersLayer";
+import { TrailsLayer } from "@/components/MapLayers/TrailsLayer";
 import { RequestToastNotifier } from "@/components/RequestToastNotifier";
-import { RouteMarkersLayer } from "@/components/RouteMarkersLayer";
-import type { RoutesGeoJSON } from "@/components/RouteMarkersLayer";
+import type { PagePreview } from "@/components/RoutePreview";
 import { RoutePreview } from "@/components/RoutePreview";
 import { Camera, LocationPuck, MapView } from "@rnmapbox/maps";
 import * as Location from "expo-location";
@@ -40,6 +44,7 @@ export default function ExploreScreen() {
     errors: Error | null;
   }>({ loading: true, data: null, errors: null });
   const [focusedRouteId, setFocusedRouteId] = useState<string | null>(null);
+  const [currentPreview, setCurrentPreview] = useState<PagePreview | null>(null);
 
   const defaultCenter = currentPosition ?? DEFAULT_CURRENT_POSITION;
   const isCompassVisible =
@@ -159,7 +164,10 @@ export default function ExploreScreen() {
               scaleBarEnabled={false}
               logoPosition={Platform.OS === "android" ? { bottom: 40, left: 10 } : undefined}
               attributionPosition={Platform.OS === "android" ? { bottom: 40, right: 10 } : undefined}
-              onPress={() => setFocusedRouteId(null)}
+              onPress={() => {
+                setFocusedRouteId(null);
+                setCurrentPreview(null);
+              }}
               onCameraChanged={(state) => {
                 const { pitch: p, heading: h, center, zoom } = state.properties;
                 setPitch(p);
@@ -193,16 +201,25 @@ export default function ExploreScreen() {
                 onRoutePress={(routeId) => {
                   setFollowCurrentPosition(false);
                   setFocusedRouteId(routeId);
+                  setCurrentPreview(null); // Clear until new preview loads so we don't show previous route's trails
                 }}
                 onRouteClusterPress={() => {
                   setFollowCurrentPosition(false);
                   setFocusedRouteId(null);
+                  setCurrentPreview(null);
                 }}
+              />
+              <TrailsLayer
+                focusedRouteId={focusedRouteId}
+                visibleTrailIds={currentPreview?.mapData ?? []}
               />
         </MapView>
         {focusedRouteId != null && (
           <View style={[styles.previewContainer, { paddingBottom: insets.bottom + 8 }]}>
-            <RoutePreview routeId={focusedRouteId} />
+            <RoutePreview
+              routeId={focusedRouteId}
+              onCurrentPreviewChange={setCurrentPreview}
+            />
           </View>
         )}
         <ResetMapOrientationButton

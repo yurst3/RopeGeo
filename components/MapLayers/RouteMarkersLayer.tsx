@@ -8,8 +8,8 @@ import type { ComponentRef } from "react";
 import { useEffect, useRef } from "react";
 
 /**
- * GeoJSON FeatureCollection returned by GET /routes.
- * Matches the API docs: https://api.webscraper.ropegeo.com/docs/index.html#tag/routes/operation/getRoutes
+ * GeoJSON FeatureCollection for route markers. Used for client-side clustering.
+ * Backend should expose this (e.g. GET /routes) with the same data as the vector tiles.
  */
 export type RoutesGeoJSON = {
   type: "FeatureCollection";
@@ -35,21 +35,17 @@ export type RoutesState = {
 
 /**
  * Route marker icon size (constant screen size at all zoom levels).
- * - Lower value = smaller markers (e.g. 0.08, 0.1).
- * - Higher value = larger markers (e.g. 0.25, 0.3).
  * The zoom-22 value must be (ICON_SIZE_AT_ZOOM_0 * 2^-22) so the icon doesn't scale with zoom.
  */
 const ROUTE_ICON_SIZE_AT_ZOOM_0 = 0.05;
 const ROUTE_ICON_SIZE_AT_ZOOM_22 = ROUTE_ICON_SIZE_AT_ZOOM_0 * 2 ** -22;
 
+const CLUSTER_RADIUS = 50;
+
 type RouteMarkersLayerProps = {
-  /** Called when loading, data, or errors change so the parent can sync state (e.g. for toasts and loading indicator). */
   onStateChange?: (state: RoutesState) => void;
-  /** Ref to the map Camera so the layer can expand a cluster on tap (zoom to show all markers in the cluster). */
   cameraRef?: React.RefObject<ComponentRef<typeof Camera> | null>;
-  /** Called when the user taps an unclustered route marker. Receives the route id and the marker coordinates [lng, lat]. */
   onRoutePress?: (routeId: string, coordinates: [number, number]) => void;
-  /** Called when the user taps a route cluster (before expanding the cluster). Use e.g. to clear focused route and stop follow mode. */
   onRouteClusterPress?: () => void;
 };
 
@@ -89,7 +85,6 @@ function RouteMarkersLayerContent({
     }
     const coords = geometry.coordinates as [number, number];
     const [lng, lat] = coords;
-
     const isCluster = props?.point_count != null;
 
     if (isCluster && shapeSourceRef.current) {
@@ -109,12 +104,11 @@ function RouteMarkersLayerContent({
       return;
     }
 
-    // Single route marker pressed
     const routeId = props?.id;
     if (routeId) {
       onRoutePress?.(routeId, coords);
       cameraRef.current.setCamera({
-        centerCoordinate: [lng, lat],
+        centerCoordinate: coords,
         animationDuration: 300,
       });
     }
@@ -130,7 +124,7 @@ function RouteMarkersLayerContent({
       id="routes-source"
       shape={data}
       cluster
-      clusterRadius={50}
+      clusterRadius={CLUSTER_RADIUS}
       onPress={handlePress}
     >
       <SymbolLayer
@@ -197,6 +191,11 @@ function RouteMarkersLayerContent({
   );
 }
 
+/**
+ * Route markers with client-side clustering. Fetches GeoJSON once and uses
+ * Mapbox's native clustering (performant; no JS clustering on pan/zoom).
+ * Backend must expose GET /routes returning a FeatureCollection of points.
+ */
 export function RouteMarkersLayer({
   onStateChange,
   cameraRef,

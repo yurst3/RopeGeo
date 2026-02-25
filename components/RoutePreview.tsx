@@ -4,7 +4,11 @@ import {
   Service,
 } from "@/components/RopeGeoHttpRequest";
 import { FontAwesome5 } from "@expo/vector-icons";
-import { useRef, useState } from "react";
+import {
+  useRef,
+  useState,
+  useEffect,
+} from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -28,6 +32,8 @@ export type PagePreview = {
   title: string;
   regions: string[];
   difficulty: string | null;
+  /** Trail feature IDs to show on the map for this page. When present, TrailsLayer shows only these. */
+  mapData?: string[];
 };
 
 const CARD_BORDER_RADIUS = 12;
@@ -129,11 +135,36 @@ function SinglePreviewCard({ preview }: { preview: PagePreview }) {
   );
 }
 
+function CurrentPreviewNotifier({
+  loading,
+  data,
+  currentIndex,
+  onCurrentPreviewChange,
+}: {
+  loading: boolean;
+  data: PagePreview[] | null;
+  currentIndex: number;
+  onCurrentPreviewChange?: (preview: PagePreview | null) => void;
+}) {
+  useEffect(() => {
+    if (!onCurrentPreviewChange) return;
+    if (loading || !data || data.length === 0) {
+      onCurrentPreviewChange(null);
+    } else {
+      const preview = data[currentIndex] ?? data[0];
+      onCurrentPreviewChange(preview);
+    }
+  }, [loading, data, currentIndex, onCurrentPreviewChange]);
+  return null;
+}
+
 type RoutePreviewProps = {
   routeId: string;
+  /** Called when the currently viewed preview page changes (initial load or swipe). Use to sync mapData for TrailsLayer. */
+  onCurrentPreviewChange?: (preview: PagePreview | null) => void;
 };
 
-export function RoutePreview({ routeId }: RoutePreviewProps) {
+export function RoutePreview({ routeId, onCurrentPreviewChange }: RoutePreviewProps) {
   const scrollRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -145,8 +176,15 @@ export function RoutePreview({ routeId }: RoutePreviewProps) {
       pathParams={{ routeId }}
     >
       {({ loading, data, errors }) => {
-        if (loading) {
-          return (
+        return (
+          <>
+            <CurrentPreviewNotifier
+              loading={!!loading}
+              data={data ?? null}
+              currentIndex={currentIndex}
+              onCurrentPreviewChange={onCurrentPreviewChange}
+            />
+            {loading ? (
             <View style={styles.outer}>
               <View style={[styles.card, styles.placeholderCard]}>
                 <ActivityIndicator size="large" color="#666" />
@@ -155,68 +193,57 @@ export function RoutePreview({ routeId }: RoutePreviewProps) {
                 </Text>
               </View>
             </View>
-          );
-        }
-        if (errors) {
-          return (
+          ) : errors ? (
             <View style={styles.outer}>
               <View style={[styles.card, styles.placeholderCard]}>
                 <Text style={styles.errorText}>{errors.message}</Text>
               </View>
             </View>
-          );
-        }
-        if (!data || data.length === 0) {
-          return (
+          ) : !data || data.length === 0 ? (
             <View style={styles.outer}>
               <View style={[styles.card, styles.placeholderCard]}>
                 <Text style={styles.placeholderText}>No preview available</Text>
               </View>
             </View>
-          );
-        }
-
-        if (data.length === 1) {
-          return (
+          ) : data.length === 1 ? (
             <View style={styles.outer}>
               <SinglePreviewCard preview={data[0]} />
             </View>
-          );
-        }
-
-        return (
-          <View style={styles.outer}>
-            <ScrollView
-              ref={scrollRef}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(e) => {
-                const i = Math.round(
-                  e.nativeEvent.contentOffset.x / CARD_WIDTH
-                );
-                setCurrentIndex(Math.min(i, data.length - 1));
-              }}
-              contentContainerStyle={styles.scrollContent}
-            >
-              {data.map((preview) => (
-                <View key={preview.id} style={styles.page}>
-                  <SinglePreviewCard preview={preview} />
-                </View>
-              ))}
-            </ScrollView>
-            <View style={styles.dots}>
-              {data.map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.dot,
-                    i === currentIndex ? styles.dotActive : styles.dotInactive,
-                  ]}
-                />
-              ))}
+          ) : (
+            <View style={styles.outer}>
+              <ScrollView
+                ref={scrollRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(e) => {
+                  const i = Math.round(
+                    e.nativeEvent.contentOffset.x / CARD_WIDTH
+                  );
+                  setCurrentIndex(Math.min(i, data.length - 1));
+                }}
+                contentContainerStyle={styles.scrollContent}
+              >
+                {data.map((preview) => (
+                  <View key={preview.id} style={styles.page}>
+                    <SinglePreviewCard preview={preview} />
+                  </View>
+                ))}
+              </ScrollView>
+              <View style={styles.dots}>
+                {data.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.dot,
+                      i === currentIndex ? styles.dotActive : styles.dotInactive,
+                    ]}
+                  />
+                ))}
+              </View>
             </View>
-          </View>
+          )}
+          </>
         );
       }}
     </RopeGeoHttpRequest>
