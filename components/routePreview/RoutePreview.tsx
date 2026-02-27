@@ -18,7 +18,7 @@ import {
 import { ExternalLinkButton } from "@/components/buttons/ExternalLinkButton";
 import {
   type Difficulty,
-  type DifficultyRisk,
+  type DifficultyWater,
   type PagePreview,
   RouteType,
 } from "ropegeo-common";
@@ -203,8 +203,8 @@ type RoutePreviewProps = {
   routeType?: RouteType | null;
   /** Called when the currently viewed preview page changes (initial load or swipe). Use to sync mapData for TrailsLayer. */
   onCurrentPreviewChange?: (preview: PagePreview | null) => void;
-  /** Called when the user presses the preview card. Receives the effective risk for the tapped preview. */
-  onPreviewPress?: (effectiveRisk: DifficultyRisk | null) => void;
+  /** Called when the user presses the preview card. Receives the water rating for the tapped preview. */
+  onPreviewPress?: (effectiveWater: DifficultyWater | null) => void;
   /** Scale factor for difficulty badges (e.g. 0.65 for 65%). Default 0.65. */
   badgeScale?: number;
 };
@@ -274,7 +274,7 @@ export function RoutePreview({ routeId, routeType = null, onCurrentPreviewChange
               <SinglePreviewCard
                 preview={{ ...data[0], routeType: routeType ?? undefined }}
                 badgeScale={badgeScale}
-                onPress={onPreviewPress != null ? (p) => onPreviewPress(p.difficulty.risk) : undefined}
+                onPress={onPreviewPress != null ? (p) => onPreviewPress(p.difficulty.water) : undefined}
               />
             </View>
           ) : (
@@ -297,7 +297,7 @@ export function RoutePreview({ routeId, routeType = null, onCurrentPreviewChange
                     <SinglePreviewCard
                       preview={{ ...preview, routeType: routeType ?? undefined }}
                       badgeScale={badgeScale}
-                      onPress={onPreviewPress != null ? (p) => onPreviewPress(p.difficulty.risk) : undefined}
+                      onPress={onPreviewPress != null ? (p) => onPreviewPress(p.difficulty.water) : undefined}
                     />
                   </View>
                 ))}

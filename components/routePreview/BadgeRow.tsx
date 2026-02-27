@@ -2,6 +2,10 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 import { ExtremeRiskBadge } from "@/components/badges/difficulty/ExtremeRiskBadge";
 import { VeryHighRiskBadge } from "@/components/badges/difficulty/VeryHighRiskBadge";
+import { FlowingC1WaterBadge } from "@/components/badges/difficulty/FlowingC1WaterBadge";
+import { FlowingC2WaterBadge } from "@/components/badges/difficulty/FlowingC2WaterBadge";
+import { FlowingC3WaterBadge } from "@/components/badges/difficulty/FlowingC3WaterBadge";
+import { FlowingC4WaterBadge } from "@/components/badges/difficulty/FlowingC4WaterBadge";
 import { FlowingWaterBadge } from "@/components/badges/difficulty/FlowingWaterBadge";
 import { FullDayBadge } from "@/components/badges/difficulty/FullDayBadge";
 import { HalfDayBadge } from "@/components/badges/difficulty/HalfDayBadge";
@@ -45,10 +49,10 @@ const WATER_BADGES: Record<DifficultyWater, React.ComponentType> = {
   [DifficultyWater.A]: MinimalWaterBadge,
   [DifficultyWater.B]: SwimmingWaterBadge,
   [DifficultyWater.C]: FlowingWaterBadge,
-  [DifficultyWater.C1]: FlowingWaterBadge,
-  [DifficultyWater.C2]: FlowingWaterBadge,
-  [DifficultyWater.C3]: FlowingWaterBadge,
-  [DifficultyWater.C4]: FlowingWaterBadge,
+  [DifficultyWater.C1]: FlowingC1WaterBadge,
+  [DifficultyWater.C2]: FlowingC2WaterBadge,
+  [DifficultyWater.C3]: FlowingC3WaterBadge,
+  [DifficultyWater.C4]: FlowingC4WaterBadge,
 };
 const TIME_BADGES: Record<DifficultyTime, React.ComponentType> = {
   [DifficultyTime.I]: ShortBadge,

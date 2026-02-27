@@ -86,14 +86,13 @@ export function RiskInfoScreen({ highlightedRisk }: RiskInfoScreenProps) {
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: insets.top + 8,
+          paddingTop: 12,
           paddingBottom: insets.bottom + 24,
           paddingLeft: 16 + insets.left,
           paddingRight: 16 + insets.right,
         },
       ]}
     >
-      <Text style={styles.title}>Risk ratings</Text>
       <Text style={styles.subtitle}>
         ACA-style additional risk (beyond technical, water, and time). Higher ratings indicate greater seriousness.
       </Text>

@@ -3,11 +3,7 @@ import { ResetMapPositionButton } from "@/components/buttons/ResetMapPositionBut
 import { RouteMarkersLayer } from "@/components/MapLayers/RouteMarkersLayer";
 import { TrailsLayer } from "@/components/MapLayers/TrailsLayer";
 import { RequestToastNotifier } from "@/components/RequestToastNotifier";
-import type {
-  DifficultyRisk,
-  PagePreview,
-  RoutesGeojson,
-} from "ropegeo-common";
+import type { PagePreview, RoutesGeojson } from "ropegeo-common";
 import { RoutePreview } from "@/components/routePreview/RoutePreview";
 import { Camera, LocationPuck, MapView } from "@rnmapbox/maps";
 import * as Location from "expo-location";
@@ -227,11 +223,8 @@ export default function ExploreScreen() {
                 )?.properties?.type ?? null
               }
               onCurrentPreviewChange={setCurrentPreview}
-              onPreviewPress={(effectiveRisk: DifficultyRisk | null) => {
-                router.push({
-                  pathname: "/explore/risk-info",
-                  params: effectiveRisk != null ? { highlightedRisk: effectiveRisk } : {},
-                });
+              onPreviewPress={() => {
+                router.push("/explore/time-info");
               }}
             />
           </View>
