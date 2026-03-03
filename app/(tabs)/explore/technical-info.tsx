@@ -1,4 +1,4 @@
-import { TechnicalInfoScreen } from "@/components/infoScreens/TechnicalInfoScreen";
+import { TechnicalInfoScreen } from "@/components/screens/info/TechnicalInfoScreen";
 import { useLocalSearchParams } from "expo-router";
 import { View } from "react-native";
 import { DifficultyTechnical } from "ropegeo-common";

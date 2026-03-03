@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { ExternalLinkButton } from "@/components/buttons/ExternalLinkButton";
+import { StarRating } from "@/components/StarRating";
 import {
   type Difficulty,
   type DifficultyWater,
@@ -32,7 +33,6 @@ type PagePreviewWithRouteType = PagePreview & {
 const CARD_BORDER_RADIUS = 12;
 const CARD_PADDING = 12;
 const IMAGE_ASPECT = 3 / 4;
-const STAR_SIZE = 14;
 const EXTERNAL_LINK_BUTTON_GAP = 8;
 /** Minimum height so loading and loaded preview cards stay the same size. */
 const PREVIEW_CARD_MIN_HEIGHT = 140;
@@ -58,37 +58,6 @@ function showBadges(preview: PagePreviewWithRouteType): boolean {
   );
 }
 
-function StarRating({
-  rating,
-  count,
-}: {
-  rating: number;
-  count: number;
-}) {
-  const stars = Array.from({ length: 5 }, (_, i) => {
-    const fill = Math.min(1, Math.max(0, rating - i));
-    return (
-      <View key={i} style={styles.starCell}>
-        <FontAwesome5 name="star" size={STAR_SIZE} color="#999" />
-        <View
-          style={[styles.starFillClip, { width: `${fill * 100}%` }]}
-          pointerEvents="none"
-        >
-          <FontAwesome5 name="star" size={STAR_SIZE} color="#333" solid />
-        </View>
-      </View>
-    );
-  });
-  return (
-    <View style={styles.starRow}>
-      {stars}
-      <Text style={styles.ratingText}>
-        {rating.toFixed(1)} ({count})
-      </Text>
-    </View>
-  );
-}
-
 function SinglePreviewCard({
   preview,
   badgeScale = 0.65,
@@ -108,7 +77,14 @@ function SinglePreviewCard({
 
   const topContent = (
     <>
-      <StarRating rating={rating} count={ratingCount} />
+      <StarRating
+        rating={rating}
+        count={ratingCount}
+        size={14}
+        emptyStarColor="#999"
+        style={styles.starRatingRow}
+        textStyle={styles.starRatingText}
+      />
       <Text style={styles.title} numberOfLines={2}>
         {preview.title}
       </Text>
@@ -203,8 +179,8 @@ type RoutePreviewProps = {
   routeType?: RouteType | null;
   /** Called when the currently viewed preview page changes (initial load or swipe). Use to sync mapData for TrailsLayer. */
   onCurrentPreviewChange?: (preview: PagePreview | null) => void;
-  /** Called when the user presses the preview card. Receives the water rating for the tapped preview. */
-  onPreviewPress?: (effectiveWater: DifficultyWater | null) => void;
+  /** Called when the user presses the preview card. Receives the tapped preview. */
+  onPreviewPress?: (preview: PagePreviewWithRouteType) => void;
   /** Scale factor for difficulty badges (e.g. 0.65 for 65%). Default 0.65. */
   badgeScale?: number;
 };
@@ -274,7 +250,7 @@ export function RoutePreview({ routeId, routeType = null, onCurrentPreviewChange
               <SinglePreviewCard
                 preview={{ ...data[0], routeType: routeType ?? undefined }}
                 badgeScale={badgeScale}
-                onPress={onPreviewPress != null ? (p) => onPreviewPress(p.difficulty.water) : undefined}
+                onPress={onPreviewPress != null ? (p) => onPreviewPress(p) : undefined}
               />
             </View>
           ) : (
@@ -297,7 +273,7 @@ export function RoutePreview({ routeId, routeType = null, onCurrentPreviewChange
                     <SinglePreviewCard
                       preview={{ ...preview, routeType: routeType ?? undefined }}
                       badgeScale={badgeScale}
-                      onPress={onPreviewPress != null ? (p) => onPreviewPress(p.difficulty.water) : undefined}
+                      onPress={onPreviewPress != null ? (p) => onPreviewPress(p) : undefined}
                     />
                   </View>
                 ))}
@@ -406,25 +382,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
-  starRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  starRatingRow: {
     marginBottom: 4,
     gap: 2,
   },
-  starCell: {
-    width: STAR_SIZE,
-    height: STAR_SIZE,
-    position: "relative",
-  },
-  starFillClip: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    height: STAR_SIZE,
-    overflow: "hidden",
-  },
-  ratingText: {
+  starRatingText: {
     marginLeft: 6,
     fontSize: 12,
     color: "#333",

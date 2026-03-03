@@ -1,4 +1,4 @@
-import { WaterInfoScreen } from "@/components/infoScreens/WaterInfoScreen";
+import { WaterInfoScreen } from "@/components/screens/info/WaterInfoScreen";
 import { useLocalSearchParams } from "expo-router";
 import { View } from "react-native";
 import { DifficultyWater } from "ropegeo-common";

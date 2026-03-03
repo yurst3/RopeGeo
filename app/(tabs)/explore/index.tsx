@@ -223,8 +223,18 @@ export default function ExploreScreen() {
                 )?.properties?.type ?? null
               }
               onCurrentPreviewChange={setCurrentPreview}
-              onPreviewPress={() => {
-                router.push("/explore/technical-info");
+              onPreviewPress={(preview) => {
+                if (preview.source === "ropewiki") {
+                  router.push({
+                    pathname: `/explore/${preview.id}/ropewiki-page`,
+                    params:
+                      preview.routeType != null
+                        ? { routeType: String(preview.routeType) }
+                        : {},
+                  });
+                } else {
+                  router.push("/explore/technical-info");
+                }
               }}
             />
           </View>

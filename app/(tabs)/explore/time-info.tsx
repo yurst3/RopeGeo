@@ -1,4 +1,4 @@
-import { TimeInfoScreen } from "@/components/infoScreens/TimeInfoScreen";
+import { TimeInfoScreen } from "@/components/screens/info/TimeInfoScreen";
 import { useLocalSearchParams } from "expo-router";
 import { View } from "react-native";
 import { DifficultyTime } from "ropegeo-common";

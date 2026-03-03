@@ -14,7 +14,7 @@ export const Method = {
 } as const;
 export type Method = (typeof Method)[keyof typeof Method];
 
-const SERVICE_BASE_URL: Record<Service, string> = {
+export const SERVICE_BASE_URL: Record<Service, string> = {
   [Service.WEBSCRAPER]: "https://api.webscraper.ropegeo.com",
 };
 
