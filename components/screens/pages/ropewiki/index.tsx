@@ -190,8 +190,12 @@ function PageContent({
             )}
           </>
         ) : (
-          <View style={styles.bannerPlaceholder}>
-            <FontAwesome5 name="image" size={48} color="#9ca3af" />
+          <View style={styles.bannerNoImageWrap}>
+            <Image
+              source={require("@/assets/images/noImage.png")}
+              style={styles.bannerNoImageIcon}
+              resizeMode="contain"
+            />
           </View>
         )}
       </Animated.View>
@@ -398,10 +402,17 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  bannerPlaceholder: {
+  bannerNoImageWrap: {
     flex: 1,
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#e5e7eb",
+  },
+  bannerNoImageIcon: {
+    width: 64,
+    height: 64,
   },
   bannerLoadingOverlay: {
     ...StyleSheet.absoluteFillObject,

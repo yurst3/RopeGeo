@@ -3,7 +3,6 @@ import {
   RopeGeoHttpRequest,
   Service,
 } from "@/components/RopeGeoHttpRequest";
-import { FontAwesome5 } from "@expo/vector-icons";
 import { useRef, useState, useEffect } from "react";
 import {
   ActivityIndicator,
@@ -33,6 +32,7 @@ type PagePreviewWithRouteType = PagePreview & {
 const CARD_BORDER_RADIUS = 12;
 const CARD_PADDING = 12;
 const IMAGE_ASPECT = 3 / 4;
+const NO_IMAGE_ICON_SIZE = 36;
 const EXTERNAL_LINK_BUTTON_GAP = 8;
 /** Minimum height so loading and loaded preview cards stay the same size. */
 const PREVIEW_CARD_MIN_HEIGHT = 140;
@@ -116,8 +116,12 @@ function SinglePreviewCard({
               />
             </>
           ) : (
-            <View style={styles.placeholderImage}>
-              <FontAwesome5 name="route" size={40} color="#999" />
+            <View style={styles.noImageWrap}>
+              <Image
+                source={require("@/assets/images/noImage.png")}
+                style={[styles.noImageIcon, { width: NO_IMAGE_ICON_SIZE, height: NO_IMAGE_ICON_SIZE }]}
+                resizeMode="contain"
+              />
             </View>
           )}
         </View>
@@ -363,12 +367,13 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  placeholderImage: {
+  noImageWrap: {
     width: "100%",
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
   },
+  noImageIcon: {},
   info: {
     flex: 1,
     minHeight: PREVIEW_CARD_MIN_HEIGHT,

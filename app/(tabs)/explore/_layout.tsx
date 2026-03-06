@@ -122,6 +122,13 @@ export default function ExploreLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="search"
+        options={{
+          headerShown: false,
+          animation: "fade",
+        }}
+      />
     </Stack>
   );
 }
