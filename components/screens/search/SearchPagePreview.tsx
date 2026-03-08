@@ -13,6 +13,7 @@ import {
   type Difficulty,
   PageDataSource,
   type PagePreview,
+  RouteType,
 } from "ropegeo-common";
 
 const IMAGE_SIZE = 96;
@@ -54,9 +55,13 @@ export function SearchPagePreview({ preview }: Props) {
   const onPress = () => {
     if (preview.source === PageDataSource.Ropewiki) {
       router.push({
-        pathname: "/explore/[id]/ropewiki-page",
-        params: { id: preview.id },
-      });
+        pathname: "/explore/[id]/page",
+        params: {
+          id: preview.id,
+          source: PageDataSource.Ropewiki,
+          routeType: RouteType.Unknown,
+        },
+      } as unknown as Parameters<typeof router.push>[0]);
     }
   };
 

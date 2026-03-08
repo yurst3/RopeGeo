@@ -1,29 +1,20 @@
-# Welcome to your Expo app 👋
+# RopeGeo Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## App routes
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+| Route | Description |
+|-------|-------------|
+| `/` | Redirects to `/(tabs)/explore` (explore tab). |
+| `/explore` | Explore tab: map, route markers, search bar; tapping a route shows a preview. |
+| `/explore/search` | Full-screen search; results are page and region previews. |
+| `/explore/[id]/page` | Page detail screen. Requires query params `source` (PageDataSource) and `routeType` (RouteType). Renders e.g. Ropewiki page when `source=ropewiki`. |
+| `/explore/shuttle-info` | Info screen for shuttle requirement badges; optional `highlightedShuttle` param. |
+| `/explore/permit-info` | Info screen for permit status badges. |
+| `/explore/risk-info` | Info screen for risk ratings. |
+| `/explore/technical-info` | Info screen for technical difficulty ratings. |
+| `/explore/water-info` | Info screen for water difficulty ratings. |
+| `/explore/time-info` | Info screen for time ratings. |
+| `/explore/vehicle-info` | Info screen for vehicle type. |
 
 ## Mapbox maps (iOS / Android)
 
@@ -33,7 +24,7 @@ This app uses [@rnmapbox/maps](https://rnmapbox.github.io/docs/install) with Exp
    ```bash
    npx expo prebuild --clean
    ```
-   If you see **`pod install` failed** / **spawn pod ENOENT**, the CocoaPods CLI wasn’t on the PATH of the process Expo used. Prebuild still succeeded. If `pod` is not found in a new terminal either, add the Ruby gem executables directory to your PATH (one-time), then run `pod install`:
+   If you see **`pod install` failed** / **spawn pod ENOENT**, the CocoaPods CLI wasn't on the PATH of the process Expo used. Prebuild still succeeded. If `pod` is not found in a new terminal either, add the Ruby gem executables directory to your PATH (one-time), then run `pod install`:
    ```bash
    echo 'export PATH="$(ruby -e '\''puts Gem.bindir'\''):$PATH"' >> ~/.zshrc
    source ~/.zshrc

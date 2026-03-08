@@ -117,7 +117,7 @@ export default function ExploreLayout() {
         }}
       />
       <Stack.Screen
-        name="[id]/ropewiki-page"
+        name="[id]/page"
         options={{
           headerShown: false,
         }}

@@ -1,0 +1,59 @@
+---
+description: App route and screen structure — screens in components/screens, route components in app with param parsing/validation
+globs: app/**/*.tsx, components/screens/**/*.tsx
+alwaysApply: false
+---
+
+# App Routes and Screens
+
+## Where things live
+
+- **Screens** (UI + logic) live under **`/components/screens/`**. Each screen file is named after its primary component (e.g. `ExploreScreen.tsx`, `SearchScreen.tsx`, `RopewikiPageScreen.tsx`). No barrel files (no `index.ts` re-exporting screens).
+- **Route components** live under **`/app/`** at the **path that matches the URL route**. Each route file renders exactly one screen and is responsible for that route’s params.
+
+## Route components
+
+- Name route components descriptively, e.g. `ExploreRoute`, `SearchRoute`, `PageRoute`.
+- A route component’s only job is to:
+  1. Read and **parse** route/query params (e.g. `useLocalSearchParams()`).
+  2. **Validate** all required and optional params (types, enums, presence).
+  3. Render the corresponding screen from `/components/screens/` and pass validated props.
+
+Route components must **not** contain screen UI or business logic; that stays in the screen component.
+
+## Param handling
+
+- **Parse** params from the router (handle `string | string[] | undefined` as needed).
+- **Validate** required params: if missing or invalid, render an error state or message instead of the screen (e.g. “Missing source”, “Invalid routeType”).
+- Use shared enums/types (e.g. from `ropegeo-common`) for param values and validate against them before passing to the screen.
+
+## Example
+
+```tsx
+// app/(tabs)/explore/[id]/page.tsx — Route component
+export default function PageRoute() {
+  const params = useLocalSearchParams<{ id: string; source: string; routeType: string }>();
+  const id = typeof params.id === "string" ? params.id : "";
+  const source = normalizeStringParam(params.source);
+  const routeType = normalizeStringParam(params.routeType);
+
+  if (!isPageDataSource(source)) {
+    return <ParamError message={source ? `Invalid source: ${source}` : "Missing source."} />;
+  }
+  if (!isRouteType(routeType)) {
+    return <ParamError message={routeType ? `Invalid routeType: ${routeType}` : "Missing routeType."} />;
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <RopewikiPageScreen pageId={id} routeType={routeType} />
+    </View>
+  );
+}
+```
+
+Screen is imported from `@/components/screens/...` or a relative path; the route only wires params to the screen.
+
+## README
+
+When you add or remove a route under `/app`, update the **App routes** table in the project root **README.md** so every route has a short description. Keep the table and descriptions in sync with the actual route files.
