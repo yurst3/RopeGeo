@@ -181,6 +181,24 @@ export const smallUiScaleProfile: UiScaleProfile = {
       legendItem: {
         default: FontSizeStep.XSMALL,
       },
+      relevantInfoTitle: {
+        default: FontSizeStep.SMALL,
+      },
+      relevantInfoMeasurement: {
+        default: FontSizeStep.XSMALL,
+      },
+      relevantInfoSectionTitle: {
+        default: FontSizeStep.SMALL,
+      },
+      relevantInfoBody: {
+        default: FontSizeStep.XSMALL,
+      },
+      relevantInfoCaption: {
+        default: FontSizeStep.XSMALL,
+      },
+      relevantInfoError: {
+        default: FontSizeStep.XSMALL,
+      },
     },
     buttons: {
       searchBar: {

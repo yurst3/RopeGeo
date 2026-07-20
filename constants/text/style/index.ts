@@ -44,6 +44,12 @@ export const TEXT_STYLE: TextStyleProfile = {
     markerTooltip: { fontSlot: "ui", fontWeight: "600" },
     legendTitle: { fontSlot: "ui", fontWeight: "600" },
     legendItem: { fontSlot: "ui", fontWeight: "400" },
+    relevantInfoTitle: { fontSlot: "ui", fontWeight: "600" },
+    relevantInfoMeasurement: { fontSlot: "ui", fontWeight: "400" },
+    relevantInfoSectionTitle: { fontSlot: "ui", fontWeight: "700" },
+    relevantInfoBody: { fontSlot: "body", fontWeight: "400" },
+    relevantInfoCaption: { fontSlot: "body", fontWeight: "400" },
+    relevantInfoError: { fontSlot: "ui", fontWeight: "400" },
   },
   button: {
     searchBar: { fontSlot: "ui", fontWeight: "400" },

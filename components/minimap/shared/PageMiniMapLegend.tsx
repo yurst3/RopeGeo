@@ -9,7 +9,7 @@ import type { LegendItem } from "ropegeo-common/models";
 import { LegendFeatureType, LineLegendItem, PolygonLegendItem } from "ropegeo-common/models";
 import { useBundledImageSource } from "@/utils/assets/useBundledImageSource";
 import type { ComponentRef } from "react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   type ImageSourcePropType,
@@ -80,6 +80,11 @@ export type PageMiniMapLegendProps = {
   rightInset: number;
   onToggleExpanded: () => void;
   onSelectLegendId: (id: string) => void;
+  /**
+   * Reports the card's settled footprint height (header plus expanded body when
+   * expanded) so the parent can frame the camera above the overlay row.
+   */
+  onExpandedFootprintChange?: (height: number) => void;
 };
 
 function PointMarkerSwatch({
@@ -218,6 +223,7 @@ export function PageMiniMapLegend({
   rightInset,
   onToggleExpanded,
   onSelectLegendId,
+  onExpandedFootprintChange,
 }: PageMiniMapLegendProps) {
   const themeColors = useColorTheme();
   const uiScale = useUiScale();
@@ -271,6 +277,7 @@ export function PageMiniMapLegend({
 
   const bodyHeight = useSharedValue(0);
   const bodyOpacity = useSharedValue(0);
+  const [headerHeight, setHeaderHeight] = useState(0);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const rowYRef = useRef<Record<string, number>>({});
   const prevExpandedRef = useRef(false);
@@ -283,6 +290,13 @@ export function PageMiniMapLegend({
   );
 
   const rowCount = sortedLegendItems.length;
+
+  useEffect(() => {
+    if (onExpandedFootprintChange == null || headerHeight === 0 || rowCount === 0) {
+      return;
+    }
+    onExpandedFootprintChange(headerHeight + (expanded ? maxHeight : 0));
+  }, [onExpandedFootprintChange, headerHeight, expanded, maxHeight, rowCount]);
 
   useEffect(() => {
     if (rowCount === 0) {
@@ -342,6 +356,7 @@ export function PageMiniMapLegend({
       <View style={cardStyle}>
         <Pressable
           onPress={onToggleExpanded}
+          onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
           style={({ pressed }) => [
             headerStyle,
             pressed && styles.headerPressed,

@@ -42,11 +42,14 @@ export function MiniMapHeader({
   onBack,
   rightSlot,
   top,
+  onHeaderHeightChange,
 }: {
   title: string;
   onBack: () => void;
   rightSlot?: ReactNode;
   top: number;
+  /** Reports the header row height (row bottom = `top` + height) for camera framing. */
+  onHeaderHeightChange?: (height: number) => void;
 }) {
   const themeColors = useColorTheme();
   const uiScale = useUiScale();
@@ -72,7 +75,15 @@ export function MiniMapHeader({
   );
 
   return (
-    <View style={[styles.headerRow, { top }]} pointerEvents="box-none">
+    <View
+      style={[styles.headerRow, { top }]}
+      pointerEvents="box-none"
+      onLayout={
+        onHeaderHeightChange != null
+          ? (e) => onHeaderHeightChange(e.nativeEvent.layout.height)
+          : undefined
+      }
+    >
       <View
         style={[
           styles.headerButtonWrap,

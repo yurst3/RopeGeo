@@ -24,7 +24,7 @@ import {
   PAGE_SEAM_FLOAT_OFFSET,
   PageSeamButtons,
 } from "./PageSeamButtons";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   type NativeScrollEvent,
@@ -134,6 +134,7 @@ export function PageContent({
 
   const minimapForUi = data.miniMap;
   const hasMiniMap = minimapForUi != null;
+  const betaSectionLookup = useMemo(() => data.toBetaSectionLookup(), [data]);
   const directionsFromPageCoords =
     data.coordinates != null
       ? { lat: data.coordinates.lat, lon: data.coordinates.lon }
@@ -363,6 +364,9 @@ export function PageContent({
                     mapDirections: isPageMiniMapType(minimapForUi.miniMapType)
                       ? mapDirections
                       : centeredMiniMapDirections,
+                    ...(isPageMiniMapType(minimapForUi.miniMapType)
+                      ? { betaSectionLookup }
+                      : {}),
                   } as MiniMapProps)}
                 />
               </View>

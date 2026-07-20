@@ -59,6 +59,12 @@ export type MapTypography = {
   markerTooltip: TypographySpec;
   legendTitle: TypographySpec;
   legendItem: TypographySpec;
+  relevantInfoTitle: TypographySpec;
+  relevantInfoMeasurement: TypographySpec;
+  relevantInfoSectionTitle: TypographySpec;
+  relevantInfoBody: TypographySpec;
+  relevantInfoCaption: TypographySpec;
+  relevantInfoError: TypographySpec;
 };
 
 export type ButtonTypography = {

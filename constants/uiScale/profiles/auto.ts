@@ -259,6 +259,32 @@ export const autoUiScaleProfile: UiScaleProfile = {
         computeFloorFromAccessibilityScaling: true,
         computedFloorConstant: 11,
       },
+      relevantInfoTitle: {
+        default: FontSizeStep.MEDIUM,
+        computeFloorFromAccessibilityScaling: true,
+        computedFloorConstant: 11,
+      },
+      relevantInfoMeasurement: {
+        default: FontSizeStep.SMALL,
+        floor: FontSizeStep.XSMALL,
+      },
+      relevantInfoSectionTitle: {
+        default: FontSizeStep.MEDIUM,
+        computeFloorFromAccessibilityScaling: true,
+        computedFloorConstant: 11,
+      },
+      relevantInfoBody: {
+        default: FontSizeStep.SMALL,
+        floor: FontSizeStep.XSMALL,
+      },
+      relevantInfoCaption: {
+        default: FontSizeStep.XSMALL,
+        floor: FontSizeStep.XSMALL,
+      },
+      relevantInfoError: {
+        default: FontSizeStep.SMALL,
+        floor: FontSizeStep.XSMALL,
+      },
     },
     buttons: {
       searchBar: {
