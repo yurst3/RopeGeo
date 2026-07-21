@@ -16,7 +16,9 @@ import { View } from "react-native";
 import {
   MiniMapType,
   PageDataSource,
+  type OfflineBetaSectionLookup,
   type OfflineCenteredRegionMiniMap,
+  type OnlineBetaSectionLookup,
   type OnlineCenteredRegionMiniMap,
   type OnlineRegionMiniMap,
 } from "ropegeo-common/models";
@@ -35,6 +37,8 @@ export type MiniMapProps = MiniMapShellProps &
     | {
         miniMap: PageMiniMapTileProps;
         mapDirections?: { lat: number; lon: number } | null;
+        /** Relevant-context lookup keyed by beta-section id (page minimaps only). */
+        betaSectionLookup?: OnlineBetaSectionLookup | OfflineBetaSectionLookup | null;
       }
     | {
         miniMap: OnlineRegionMiniMap;
@@ -120,6 +124,7 @@ export const MiniMap = forwardRef<MiniMapHandle, MiniMapProps>(function MiniMap(
         <MiniMapAnimatedCard {...cardProps} mapDirections={p.mapDirections}>
           <PageMiniMapView
             miniMap={p.miniMap}
+            betaSectionLookup={p.betaSectionLookup}
             reloadRegisterRef={reloadRegisterRef}
           />
         </MiniMapAnimatedCard>

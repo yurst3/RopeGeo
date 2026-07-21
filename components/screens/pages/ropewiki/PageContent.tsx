@@ -8,6 +8,7 @@ import {
   ROPEWIKI_ATTRIBUTION_COURTESY_SUFFIX,
 } from "@/constants/ropewikiAttribution";
 import { ROPEWIKI_ORIGIN } from "@/constants/ropewikiOrigin";
+import * as WebBrowser from "expo-web-browser";
 import { useColorTheme } from "@/context/theme/ColorThemeContext";
 import { useTextStyle } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
@@ -32,8 +33,7 @@ import {
   PAGE_SEAM_FLOAT_OFFSET,
   PageSeamButtons,
 } from "./PageSeamButtons";
-import * as WebBrowser from "expo-web-browser";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   type NativeScrollEvent,
@@ -147,6 +147,7 @@ export function PageContent({
     minimapForUi != null && isPageMiniMapType(minimapForUi.miniMapType)
       ? ("authors" in minimapForUi ? minimapForUi.authors : null)
       : null;
+  const betaSectionLookup = useMemo(() => data.toBetaSectionLookup(), [data]);
   const directionsFromPageCoords =
     data.coordinates != null
       ? { lat: data.coordinates.lat, lon: data.coordinates.lon }
@@ -408,6 +409,9 @@ export function PageContent({
                     mapDirections: isPageMiniMapType(minimapForUi.miniMapType)
                       ? mapDirections
                       : centeredMiniMapDirections,
+                    ...(isPageMiniMapType(minimapForUi.miniMapType)
+                      ? { betaSectionLookup }
+                      : {}),
                   } as MiniMapProps)}
                 />
               </View>

@@ -150,6 +150,18 @@ export type MapTextSizes = {
   markerTooltip: ConstantTextSizeSpec;
   legendTitle: ScalingTextSizeSpec;
   legendItem: ScalingTextSizeSpec;
+  /** MiniMapRelevantContext card header ("Relevant Info"). */
+  relevantInfoTitle: ScalingTextSizeSpec;
+  /** Measurement label/value chips in Relevant Info. */
+  relevantInfoMeasurement: ConstantTextSizeSpec;
+  /** Beta-section group titles inside Relevant Info. */
+  relevantInfoSectionTitle: ScalingTextSizeSpec;
+  /** Excerpt HTML body inside Relevant Info. */
+  relevantInfoBody: ConstantTextSizeSpec;
+  /** Image caption HTML inside Relevant Info. */
+  relevantInfoCaption: ConstantTextSizeSpec;
+  /** Unresolved-image placeholder text inside Relevant Info. */
+  relevantInfoError: ConstantTextSizeSpec;
 };
 
 export type MapButtonSizes = {
