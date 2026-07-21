@@ -1,6 +1,11 @@
 import { stackScreenOptions } from "@/utils/navigation/stackScreenOptions";
 import { Stack } from "expo-router";
 
+/** Anchor the stack so `index` is always beneath deep-linked routes (back works on cold-start links). */
+export const unstable_settings = {
+  initialRouteName: "index",
+};
+
 export default function ExploreLayout() {
   return (
     <Stack screenOptions={stackScreenOptions}>

@@ -22,7 +22,7 @@ import {
   useDownloadProgressToasts,
 } from "@/utils/toast/useDownloadProgressToasts";
 import { ToastKeyCollisionError, useToast } from "@/context/ui/ToastContext";
-import { usePathname, useRouter } from "expo-router";
+import { usePathname } from "expo-router";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -81,7 +81,6 @@ export function RopewikiPageScreenBody({
   const headerChrome = useHeaderChromeLayout();
   const toastChrome = useToastChromeLayout();
   const { showPill, dismiss, upsertPill } = useToast();
-  const router = useRouter();
   const { abortJob, enqueuePageDownload, getJobUISnapshot, takeInvalidStoredDownloadPageId } =
     useDownloadJobQueue();
   const pathname = usePathname();
@@ -533,7 +532,7 @@ export function RopewikiPageScreenBody({
       {!mapExpanded && (
         <>
           <BackButton
-            onPress={() => router.back()}
+            handleHardwareBack
             top={insets.top + headerChrome.rowTopInset}
           />
           <SaveButton
