@@ -2,7 +2,7 @@
   "expo": {
     "name": "RopeGeo",
     "slug": "RopeGeo",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "ropegeo",
