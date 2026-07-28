@@ -1,6 +1,7 @@
 import {
   BetaSectionExcerpt,
   FEET,
+  HOURS,
   ImageContext,
   LengthMeasurement,
   MeasurementContext,
@@ -10,10 +11,18 @@ import {
   OnlineBetaSectionImage,
   PointLegendItem,
   RelevantContext,
+  TimeMeasurement,
+  boldRelevantPhraseInHtml,
+  type MeasurementsLookup,
   type OfflineBetaSectionLookup,
+  type OfflineImageLookup,
   type OnlineBetaSectionLookup,
+  type OnlineImageLookup,
 } from "ropegeo-common/models";
-import { buildRelevantContextContent } from "../relevantContextContent";
+import {
+  PAGE_LEVEL_SECTION_KEY,
+  buildRelevantContextContent,
+} from "../relevantContextContent";
 
 const REVISION_DATE = new Date("2025-01-15T00:00:00.000Z");
 
@@ -58,6 +67,7 @@ function offlineImage(
     downloadedPreviewPath: string | null;
     downloadedBannerPath: string | null;
     downloadedFullPath: string | null;
+    caption: string | null;
   }>,
 ): OfflineBetaSectionImage {
   return new OfflineBetaSectionImage(
@@ -70,7 +80,7 @@ function offlineImage(
       ? overrides.downloadedFullPath
       : `file:///images/${id}-full.avif`,
     `https://ropewiki.com/File:${id}`,
-    null,
+    overrides?.caption !== undefined ? overrides.caption : null,
     REVISION_DATE,
     overrides?.downloadedPreviewPath !== undefined
       ? overrides.downloadedPreviewPath
@@ -90,27 +100,105 @@ function legendPoint(relevantContext: RelevantContext | null): PointLegendItem {
 
 describe("buildRelevantContextContent", () => {
   it("returns null when the item has no relevant context or no displayable data", () => {
-    expect(buildRelevantContextContent(legendPoint(null), {})).toBeNull();
+    expect(buildRelevantContextContent(legendPoint(null), {}, {}, {})).toBeNull();
     expect(
       buildRelevantContextContent(
-        legendPoint(new RelevantContext([], {}, {})),
+        legendPoint(new RelevantContext([], {}, [])),
+        {},
+        {},
         {},
       ),
     ).toBeNull();
   });
 
-  it("maps measurements to label/value rows", () => {
+  it("resolves measurements via measurementsLookup and skips missing keys", () => {
+    const measurementsLookup: MeasurementsLookup = {
+      approachElevGain: new LengthMeasurement(400, FEET),
+    };
     const context = new RelevantContext(
-      [new MeasurementContext("Rappel", new LengthMeasurement(120, FEET), 0.9)],
+      [
+        new MeasurementContext("approachElevGain", "Definitely Relevant"),
+        new MeasurementContext("descentLength", "Somewhat Relevant"),
+      ],
       {},
-      {},
+      [],
     );
-    const content = buildRelevantContextContent(legendPoint(context), {});
+    const content = buildRelevantContextContent(
+      legendPoint(context),
+      {},
+      {},
+      measurementsLookup,
+    );
     expect(content).not.toBeNull();
-    expect(content!.measurements).toEqual([{ label: "Rappel", value: "120ft" }]);
+    expect(content!.measurements).toEqual([
+      {
+        label: "Approach Gain",
+        values: ["400ft"],
+        relevanceStrength: "Definitely Relevant",
+      },
+    ]);
     expect(content!.groups).toEqual([]);
     expect(content!.hasUnresolvedImages).toBe(false);
     expect(content!.galleryPages).toEqual([]);
+  });
+
+  it("combines min/max time contexts into one row with both values", () => {
+    const measurementsLookup: MeasurementsLookup = {
+      minDescentTime: new TimeMeasurement(3.5, HOURS),
+      maxDescentTime: new TimeMeasurement(5, HOURS),
+      descentLength: new LengthMeasurement(1.1, FEET),
+    };
+    const context = new RelevantContext(
+      [
+        new MeasurementContext("descentLength", "Somewhat Relevant"),
+        new MeasurementContext("maxDescentTime", "Somewhat Relevant"),
+        new MeasurementContext("minDescentTime", "Definitely Relevant"),
+      ],
+      {},
+      [],
+    );
+    const content = buildRelevantContextContent(
+      legendPoint(context),
+      {},
+      {},
+      measurementsLookup,
+    );
+    expect(content!.measurements).toEqual([
+      {
+        label: "Descent Dist.",
+        values: ["1.1ft"],
+        relevanceStrength: "Somewhat Relevant",
+      },
+      {
+        label: "Descent Est.",
+        values: ["3.5h", "5h"],
+        relevanceStrength: "Definitely Relevant",
+      },
+    ]);
+  });
+
+  it("keeps a lone min or max time context as its own row", () => {
+    const measurementsLookup: MeasurementsLookup = {
+      minDescentTime: new TimeMeasurement(3.5, HOURS),
+    };
+    const context = new RelevantContext(
+      [new MeasurementContext("minDescentTime", "Somewhat Relevant")],
+      {},
+      [],
+    );
+    const content = buildRelevantContextContent(
+      legendPoint(context),
+      {},
+      {},
+      measurementsLookup,
+    );
+    expect(content!.measurements).toEqual([
+      {
+        label: "Descent Est.",
+        values: ["3.5h"],
+        relevanceStrength: "Somewhat Relevant",
+      },
+    ]);
   });
 
   it("orders groups by section page order with page-level images first and unresolved keys last", () => {
@@ -131,31 +219,48 @@ describe("buildRelevantContextContent", () => {
       SECTION_B_ID,
     );
     const pageLevelImage = onlineImage(IMAGE_B_ID);
-    const lookup: OnlineBetaSectionLookup = {
-      [SECTION_A_ID]: {
-        section: sectionA,
-        imagesById: { [IMAGE_A_ID]: onlineImage(IMAGE_A_ID) },
-      },
-      [SECTION_B_ID]: { section: sectionB, imagesById: {} },
-      "": { section: null, imagesById: { [IMAGE_B_ID]: pageLevelImage } },
+    const betaSectionLookup: OnlineBetaSectionLookup = {
+      [SECTION_A_ID]: sectionA,
+      [SECTION_B_ID]: sectionB,
+    };
+    const imageLookup: OnlineImageLookup = {
+      [IMAGE_A_ID]: { image: onlineImage(IMAGE_A_ID), betaSectionId: SECTION_A_ID },
+      [IMAGE_B_ID]: { image: pageLevelImage },
     };
     const context = new RelevantContext(
       [],
       {
-        [SECTION_A_ID]: [new BetaSectionExcerpt("Approach text.", 0, 14, 0.8)],
-        [SECTION_B_ID]: [new BetaSectionExcerpt("Overview text.", 0, 14, 0.8)],
-        [MISSING_SECTION_ID]: [new BetaSectionExcerpt("Orphan text.", undefined, undefined, 0.5)],
+        [SECTION_A_ID]: [
+          new BetaSectionExcerpt("Approach text.", 0, 14, "Somewhat Relevant", "Approach"),
+        ],
+        [SECTION_B_ID]: [
+          new BetaSectionExcerpt("Overview text.", 0, 14, "Somewhat Relevant", "Overview"),
+        ],
+        [MISSING_SECTION_ID]: [
+          new BetaSectionExcerpt(
+            "Orphan text.",
+            undefined,
+            undefined,
+            "Maybe Relevant",
+            "Orphan",
+          ),
+        ],
       },
-      {
-        [SECTION_A_ID]: [new ImageContext(IMAGE_A_ID, 0.9)],
-        "": [new ImageContext(IMAGE_B_ID, 0.9)],
-      },
+      [
+        new ImageContext(IMAGE_A_ID, "Somewhat Relevant", "Caption"),
+        new ImageContext(IMAGE_B_ID, "Somewhat Relevant", "Caption"),
+      ],
     );
 
-    const content = buildRelevantContextContent(legendPoint(context), lookup);
+    const content = buildRelevantContextContent(
+      legendPoint(context),
+      betaSectionLookup,
+      imageLookup,
+      {},
+    );
     expect(content).not.toBeNull();
     expect(content!.groups.map((g) => g.sectionKey)).toEqual([
-      "",
+      PAGE_LEVEL_SECTION_KEY,
       SECTION_B_ID,
       SECTION_A_ID,
       MISSING_SECTION_ID,
@@ -177,37 +282,66 @@ describe("buildRelevantContextContent", () => {
       [],
       SECTION_A_ID,
     );
-    const lookup: OnlineBetaSectionLookup = {
-      [SECTION_A_ID]: { section, imagesById: {} },
+    const betaSectionLookup: OnlineBetaSectionLookup = {
+      [SECTION_A_ID]: section,
     };
-    const excerpt = section.toExcerpt("<li>second</li>", 0.8);
+    const excerpt = section.toExcerpt("<li>second</li>", "Somewhat Relevant", "second");
     const context = new RelevantContext(
       [],
       {
         [SECTION_A_ID]: [excerpt],
         [MISSING_SECTION_ID]: [
-          new BetaSectionExcerpt("<li>floating item</li>", undefined, undefined, 0.5),
+          new BetaSectionExcerpt(
+            "<li>floating item</li>",
+            undefined,
+            undefined,
+            "Maybe Relevant",
+            "floating",
+          ),
         ],
       },
-      {},
+      [],
     );
 
-    const content = buildRelevantContextContent(legendPoint(context), lookup);
+    const content = buildRelevantContextContent(
+      legendPoint(context),
+      betaSectionLookup,
+      {},
+      {},
+    );
     expect(content).not.toBeNull();
     const resolvedGroup = content!.groups.find((g) => g.sectionKey === SECTION_A_ID)!;
-    expect(resolvedGroup.excerptHtmls).toEqual([
-      section.toExcerptHtml(excerpt),
+    expect(resolvedGroup.excerpts).toEqual([
+      {
+        html: section.toExcerptHtml(excerpt),
+        relevanceStrength: "Somewhat Relevant",
+      },
     ]);
     const fallbackGroup = content!.groups.find(
       (g) => g.sectionKey === MISSING_SECTION_ID,
     )!;
     expect(fallbackGroup.title).toBeNull();
-    expect(fallbackGroup.excerptHtmls).toEqual(["<ul><li>floating item</li></ul>"]);
+    expect(fallbackGroup.excerpts).toEqual([
+      {
+        html: {
+          body: boldRelevantPhraseInHtml(
+            "<ul><li>floating item</li></ul>",
+            "floating",
+          ),
+        },
+        relevanceStrength: "Maybe Relevant",
+      },
+    ]);
   });
 
-  it("selects preview renditions online with banner fallback", () => {
-    const withPreview = onlineImage(IMAGE_A_ID);
-    const withoutPreview = onlineImage(IMAGE_B_ID, { previewUrl: null });
+  it("selects preview renditions online with banner fallback and bolds captions", () => {
+    const withPreview = onlineImage(IMAGE_A_ID, {
+      caption: "The first rappel is bolted.",
+    });
+    const withoutPreview = onlineImage(IMAGE_B_ID, {
+      previewUrl: null,
+      caption: "See R2 below.",
+    });
     const section = new OnlineBetaSection(
       1,
       "Approach",
@@ -216,24 +350,28 @@ describe("buildRelevantContextContent", () => {
       [withPreview, withoutPreview],
       SECTION_A_ID,
     );
-    const lookup: OnlineBetaSectionLookup = {
-      [SECTION_A_ID]: {
-        section,
-        imagesById: { [IMAGE_A_ID]: withPreview, [IMAGE_B_ID]: withoutPreview },
-      },
+    const betaSectionLookup: OnlineBetaSectionLookup = {
+      [SECTION_A_ID]: section,
+    };
+    const imageLookup: OnlineImageLookup = {
+      [IMAGE_A_ID]: { image: withPreview, betaSectionId: SECTION_A_ID },
+      [IMAGE_B_ID]: { image: withoutPreview, betaSectionId: SECTION_A_ID },
     };
     const context = new RelevantContext(
       [],
       {},
-      {
-        [SECTION_A_ID]: [
-          new ImageContext(IMAGE_A_ID, 0.9),
-          new ImageContext(IMAGE_B_ID, 0.9),
-        ],
-      },
+      [
+        new ImageContext(IMAGE_A_ID, "Somewhat Relevant", "first rappel"),
+        new ImageContext(IMAGE_B_ID, "Definitely Relevant", "R2"),
+      ],
     );
 
-    const content = buildRelevantContextContent(legendPoint(context), lookup);
+    const content = buildRelevantContextContent(
+      legendPoint(context),
+      betaSectionLookup,
+      imageLookup,
+      {},
+    );
     const rows = content!.groups[0].images;
     expect(rows).toEqual([
       {
@@ -241,14 +379,19 @@ describe("buildRelevantContextContent", () => {
         imageId: IMAGE_A_ID,
         previewSource: `https://img/${IMAGE_A_ID}-preview.avif`,
         fullSource: `https://img/${IMAGE_A_ID}-full.avif`,
-        captionHtml: `Caption ${IMAGE_A_ID}`,
+        captionHtml: boldRelevantPhraseInHtml(
+          "The first rappel is bolted.",
+          "first rappel",
+        ),
+        relevanceStrength: "Somewhat Relevant",
       },
       {
         resolved: true,
         imageId: IMAGE_B_ID,
         previewSource: `https://img/${IMAGE_B_ID}-banner.avif`,
         fullSource: `https://img/${IMAGE_B_ID}-full.avif`,
-        captionHtml: `Caption ${IMAGE_B_ID}`,
+        captionHtml: boldRelevantPhraseInHtml("See R2 below.", "R2"),
+        relevanceStrength: "Definitely Relevant",
       },
     ]);
   });
@@ -264,24 +407,28 @@ describe("buildRelevantContextContent", () => {
       [withPreview, withoutPreview],
       SECTION_A_ID,
     );
-    const lookup: OfflineBetaSectionLookup = {
-      [SECTION_A_ID]: {
-        section,
-        imagesById: { [IMAGE_A_ID]: withPreview, [IMAGE_B_ID]: withoutPreview },
-      },
+    const betaSectionLookup: OfflineBetaSectionLookup = {
+      [SECTION_A_ID]: section,
+    };
+    const imageLookup: OfflineImageLookup = {
+      [IMAGE_A_ID]: { image: withPreview, betaSectionId: SECTION_A_ID },
+      [IMAGE_B_ID]: { image: withoutPreview, betaSectionId: SECTION_A_ID },
     };
     const context = new RelevantContext(
       [],
       {},
-      {
-        [SECTION_A_ID]: [
-          new ImageContext(IMAGE_A_ID, 0.9),
-          new ImageContext(IMAGE_B_ID, 0.9),
-        ],
-      },
+      [
+        new ImageContext(IMAGE_A_ID, "Somewhat Relevant"),
+        new ImageContext(IMAGE_B_ID, "Somewhat Relevant"),
+      ],
     );
 
-    const content = buildRelevantContextContent(legendPoint(context), lookup);
+    const content = buildRelevantContextContent(
+      legendPoint(context),
+      betaSectionLookup,
+      imageLookup,
+      {},
+    );
     const rows = content!.groups[0].images;
     expect(rows[0]).toMatchObject({
       resolved: true,
@@ -303,28 +450,41 @@ describe("buildRelevantContextContent", () => {
       [onlineImage(IMAGE_A_ID)],
       SECTION_A_ID,
     );
-    const lookup: OnlineBetaSectionLookup = {
-      [SECTION_A_ID]: {
-        section,
-        imagesById: { [IMAGE_A_ID]: onlineImage(IMAGE_A_ID) },
-      },
+    const betaSectionLookup: OnlineBetaSectionLookup = {
+      [SECTION_A_ID]: section,
+    };
+    const imageLookup: OnlineImageLookup = {
+      [IMAGE_A_ID]: { image: onlineImage(IMAGE_A_ID), betaSectionId: SECTION_A_ID },
     };
     const context = new RelevantContext(
       [],
       {},
-      {
-        [SECTION_A_ID]: [
-          new ImageContext(IMAGE_A_ID, 0.9),
-          new ImageContext(MISSING_IMAGE_ID, 0.9),
-        ],
-      },
+      [
+        new ImageContext(IMAGE_A_ID, "Somewhat Relevant"),
+        new ImageContext(MISSING_IMAGE_ID, "Somewhat Relevant"),
+      ],
     );
 
-    const content = buildRelevantContextContent(legendPoint(context), lookup);
+    const content = buildRelevantContextContent(
+      legendPoint(context),
+      betaSectionLookup,
+      imageLookup,
+      {},
+    );
     expect(content!.hasUnresolvedImages).toBe(true);
-    expect(content!.groups[0].images).toEqual([
+    const sectionGroup = content!.groups.find((g) => g.sectionKey === SECTION_A_ID)!;
+    const pageGroup = content!.groups.find(
+      (g) => g.sectionKey === PAGE_LEVEL_SECTION_KEY,
+    )!;
+    expect(sectionGroup.images).toEqual([
       expect.objectContaining({ resolved: true, imageId: IMAGE_A_ID }),
-      { resolved: false, imageId: MISSING_IMAGE_ID },
+    ]);
+    expect(pageGroup.images).toEqual([
+      {
+        resolved: false,
+        imageId: MISSING_IMAGE_ID,
+        relevanceStrength: "Somewhat Relevant",
+      },
     ]);
   });
 
@@ -347,30 +507,32 @@ describe("buildRelevantContextContent", () => {
       [onlineImage(IMAGE_A_ID)],
       SECTION_B_ID,
     );
-    const lookup: OnlineBetaSectionLookup = {
-      [SECTION_A_ID]: {
-        section: sectionA,
-        imagesById: { [IMAGE_A_ID]: imageA, [IMAGE_B_ID]: noFull },
-      },
-      [SECTION_B_ID]: {
-        section: sectionB,
-        imagesById: { [IMAGE_A_ID]: onlineImage(IMAGE_A_ID) },
-      },
+    const betaSectionLookup: OnlineBetaSectionLookup = {
+      [SECTION_A_ID]: sectionA,
+      [SECTION_B_ID]: sectionB,
+    };
+    const imageLookup: OnlineImageLookup = {
+      [IMAGE_A_ID]: { image: imageA, betaSectionId: SECTION_A_ID },
+      [IMAGE_B_ID]: { image: noFull, betaSectionId: SECTION_A_ID },
     };
     const context = new RelevantContext(
       [],
       {},
-      {
-        [SECTION_A_ID]: [
-          new ImageContext(IMAGE_A_ID, 0.9),
-          new ImageContext(IMAGE_B_ID, 0.9),
-          new ImageContext(MISSING_IMAGE_ID, 0.9),
-        ],
-        [SECTION_B_ID]: [new ImageContext(IMAGE_A_ID, 0.9)],
-      },
+      [
+        new ImageContext(IMAGE_A_ID, "Somewhat Relevant"),
+        new ImageContext(IMAGE_B_ID, "Somewhat Relevant"),
+        new ImageContext(MISSING_IMAGE_ID, "Somewhat Relevant"),
+        // Duplicate id — should only appear once in the gallery.
+        new ImageContext(IMAGE_A_ID, "Definitely Relevant"),
+      ],
     );
 
-    const content = buildRelevantContextContent(legendPoint(context), lookup);
+    const content = buildRelevantContextContent(
+      legendPoint(context),
+      betaSectionLookup,
+      imageLookup,
+      {},
+    );
     expect(content!.galleryPages).toEqual([
       {
         itemKey: IMAGE_A_ID,
@@ -379,6 +541,79 @@ describe("buildRelevantContextContent", () => {
         linkUrl: `https://ropewiki.com/File:${IMAGE_A_ID}`,
         captionHtml: `Caption ${IMAGE_A_ID}`,
       },
+    ]);
+  });
+
+  it("excludes measurements, excerpts, and images outside the strength filter range", () => {
+    const section = new OnlineBetaSection(
+      1,
+      "Approach",
+      "<p>maybe phrase</p><p>definite phrase</p>",
+      REVISION_DATE,
+      [onlineImage(IMAGE_A_ID), onlineImage(IMAGE_B_ID)],
+      SECTION_A_ID,
+    );
+    const betaSectionLookup: OnlineBetaSectionLookup = {
+      [SECTION_A_ID]: section,
+    };
+    const imageLookup: OnlineImageLookup = {
+      [IMAGE_A_ID]: { image: onlineImage(IMAGE_A_ID), betaSectionId: SECTION_A_ID },
+      [IMAGE_B_ID]: { image: onlineImage(IMAGE_B_ID), betaSectionId: SECTION_A_ID },
+    };
+    const measurementsLookup: MeasurementsLookup = {
+      approachElevGain: new LengthMeasurement(400, FEET),
+      descentLength: new LengthMeasurement(100, FEET),
+    };
+    const context = new RelevantContext(
+      [
+        new MeasurementContext("approachElevGain", "Definitely Relevant"),
+        new MeasurementContext("descentLength", "Maybe Relevant"),
+      ],
+      {
+        [SECTION_A_ID]: [
+          section.toExcerpt("<p>maybe phrase</p>", "Maybe Relevant", "maybe"),
+          section.toExcerpt(
+            "<p>definite phrase</p>",
+            "Definitely Relevant",
+            "definite",
+          ),
+        ],
+      },
+      [
+        new ImageContext(IMAGE_A_ID, "Maybe Relevant"),
+        new ImageContext(IMAGE_B_ID, "Definitely Relevant"),
+      ],
+    );
+
+    const content = buildRelevantContextContent(
+      legendPoint(context),
+      betaSectionLookup,
+      imageLookup,
+      measurementsLookup,
+      { min: "Definitely Relevant", max: "Definitely Relevant" },
+    );
+
+    expect(content).not.toBeNull();
+    expect(content!.measurements).toEqual([
+      {
+        label: "Approach Gain",
+        values: ["400ft"],
+        relevanceStrength: "Definitely Relevant",
+      },
+    ]);
+    expect(content!.groups).toHaveLength(1);
+    expect(content!.groups[0].excerpts).toHaveLength(1);
+    expect(content!.groups[0].excerpts[0].relevanceStrength).toBe(
+      "Definitely Relevant",
+    );
+    expect(content!.groups[0].images).toEqual([
+      expect.objectContaining({
+        imageId: IMAGE_B_ID,
+        relevanceStrength: "Definitely Relevant",
+      }),
+    ]);
+    expect(content!.hiddenByStrength).toEqual([
+      { strength: "Maybe Relevant", count: 3 },
     ]);
   });
 });

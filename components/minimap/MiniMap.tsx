@@ -18,8 +18,11 @@ import {
   PageDataSource,
   type OfflineBetaSectionLookup,
   type OfflineCenteredRegionMiniMap,
+  type OfflineImageLookup,
+  type MeasurementsLookup,
   type OnlineBetaSectionLookup,
   type OnlineCenteredRegionMiniMap,
+  type OnlineImageLookup,
   type OnlineRegionMiniMap,
 } from "ropegeo-common/models";
 
@@ -37,8 +40,10 @@ export type MiniMapProps = MiniMapShellProps &
     | {
         miniMap: PageMiniMapTileProps;
         mapDirections?: { lat: number; lon: number } | null;
-        /** Relevant-context lookup keyed by beta-section id (page minimaps only). */
+        /** Relevant-context lookups from the owning page view (page minimaps only). */
         betaSectionLookup?: OnlineBetaSectionLookup | OfflineBetaSectionLookup | null;
+        imageLookup?: OnlineImageLookup | OfflineImageLookup | null;
+        measurementsLookup?: MeasurementsLookup | null;
       }
     | {
         miniMap: OnlineRegionMiniMap;
@@ -125,6 +130,8 @@ export const MiniMap = forwardRef<MiniMapHandle, MiniMapProps>(function MiniMap(
           <PageMiniMapView
             miniMap={p.miniMap}
             betaSectionLookup={p.betaSectionLookup}
+            imageLookup={p.imageLookup}
+            measurementsLookup={p.measurementsLookup}
             reloadRegisterRef={reloadRegisterRef}
           />
         </MiniMapAnimatedCard>

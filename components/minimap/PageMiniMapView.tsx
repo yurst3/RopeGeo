@@ -2,23 +2,27 @@ import { ButtonStack } from "@/components/buttons/ButtonStack";
 import { ResetCameraOrientationButton } from "@/components/buttons/standard/ResetCameraOrientationButton";
 import { ResetCameraToBoundsButton } from "@/components/buttons/standard/ResetCameraToBoundsButton";
 import { ResetCameraToPositionButton } from "@/components/buttons/standard/ResetCameraToPositionButton";
-import { useHeaderChromeLayout } from "@/utils/layout/buttonChromeLayout";
+import { useHeaderChromeLayout, useMapButtonChromeLayout, expandedMiniMapHeaderRowStackTop, expandedMiniMapOverlayBottomOffset, expandedMiniMapOverlayEdgeGap } from "@/utils/layout/buttonChromeLayout";
 import { useRouteMarkerMetrics } from "@/utils/layout/routeMarkerLayout";
 import { useMapMarkerTextFont } from "@/utils/theme/resolvers";
 import { useForegroundUserLocation } from "@/utils/location/useForegroundUserLocation";
 import { MiniMapHeader } from "./shared/MiniMapHeader";
-import { PageMiniMapLegend } from "./shared/PageMiniMapLegend";
-import { MiniMapRelevantContext } from "./shared/MiniMapRelevantContext";
+import { MapLegendPanel } from "./panels/MapLegendPanel";
+import { RelevantInfoPanel } from "./panels/RelevantInfoPanel";
 import { useToast } from "@/context/ui/ToastContext";
+import { useSettings } from "@/context/app/SettingsContext";
 import {
   buildRelevantContextContent,
   type BetaSectionLookup,
+  type ImageLookup,
+  type RelevantContextContent,
 } from "@/utils/minimap/relevantContextContent";
 import {
   focusCameraPadding,
   pointFocusCameraStop,
   POINT_FOCUS_MIN_ZOOM,
 } from "@/utils/minimap/focusedFeatureCamera";
+import { boundsFocusCameraStop } from "@/utils/minimap/zoomForBounds";
 import {
   boundsFromLegendItem,
   boundsFromPositions,
@@ -75,6 +79,7 @@ import {
   Bounds,
   LegendFeatureType,
   PointLegendItem,
+  type MeasurementsLookup,
   type OfflinePageMiniMap,
   type OnlinePageMiniMap,
 } from "ropegeo-common/models";
@@ -86,6 +91,14 @@ const PAGE_POINT_ICON_LAYER_ID = "page-mini-map-point-icons";
 const PAGE_SELECTED_HALO_SOURCE_ID = "page-mini-map-selected-halo";
 const PAGE_SELECTED_HALO_LAYER_ID = "page-mini-map-selected-halo-line";
 const PAGE_SELECTED_OVERLAY_LAYER_ID = "page-mini-map-selected-overlay-line";
+
+/** Stable empty collection so the line-highlight ShapeSource can stay mounted. */
+const EMPTY_LINE_HIGHLIGHT: GeoJSON.FeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
+};
+
+const DEFAULT_LINE_HIGHLIGHT_WIDTH = 3;
 
 const USER_LOCATION_ZOOM = 14;
 const COLLAPSED_CAMERA_ANIMATION_MS = 250;
@@ -159,27 +172,33 @@ export type PageMiniMapTileProps = OnlinePageMiniMap | OfflinePageMiniMap;
 
 export type PageMiniMapViewProps = {
   miniMap: PageMiniMapTileProps;
-  /** Relevant-context lookup keyed by beta-section id (from the owning page view). */
+  /** Relevant-context lookups from the owning page view. */
   betaSectionLookup?: BetaSectionLookup | null;
+  imageLookup?: ImageLookup | null;
+  measurementsLookup?: MeasurementsLookup | null;
   reloadRegisterRef?: MiniMapReloadRegisterRef;
 };
 
 export function PageMiniMapView({
   miniMap,
   betaSectionLookup,
+  imageLookup,
+  measurementsLookup,
   reloadRegisterRef,
 }: PageMiniMapViewProps) {
   const themeColors = useColorTheme();
   const { map } = themeColors;
   const uiScale = useUiScale();
   const textStyle = useTextStyle();
+  const { settings } = useSettings();
   const markerMetrics = useRouteMarkerMetrics();
   const markerTextFont = useMapMarkerTextFont();
   const shell = useMiniMapShell();
   const headerChrome = useHeaderChromeLayout();
+  const mapChrome = useMapButtonChromeLayout();
   const tabBarHeight = useBottomTabBarHeight();
   const b = miniMap.bounds;
-  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const { height: windowHeight, width: windowWidth, fontScale } = useWindowDimensions();
   const tileTemplate =
     miniMap.fetchType === "offline"
       ? miniMap.offlineTilesTemplate
@@ -230,6 +249,7 @@ export function PageMiniMapView({
     boundsResetButtonVisible,
     cameraHeadingDeg,
     markCameraMovedFromBounds,
+    markCameraFittedToBoundsAfter,
   } = useMiniMapCamera({
     expanded: shell.expanded,
   });
@@ -267,7 +287,18 @@ export function PageMiniMapView({
     strokeWidth: number;
   } | null>(null);
 
+  /**
+   * Invalidates in-flight async point-focus `setCamera` calls so a later line
+   * bounds frame is not overwritten by a stale marking focus.
+   */
+  const cameraFocusGenerationRef = useRef(0);
+  const beginCameraFocus = useCallback(() => {
+    cameraFocusGenerationRef.current += 1;
+    return cameraFocusGenerationRef.current;
+  }, []);
+
   const clearMapSelections = useCallback(() => {
+    cameraFocusGenerationRef.current += 1;
     setSelectedSegmentKey(null);
     setPointTooltip(null);
     selectedPointLngLatRef.current = null;
@@ -275,26 +306,93 @@ export function PageMiniMapView({
     setRelevantExpanded(false);
   }, []);
 
-  const applyCollapsedCamera = useCallback(() => {
-    if (!shell.mountNativeMap || shell.expanded) return;
-    resetPitchAndHeading(COLLAPSED_CAMERA_ANIMATION_MS);
-    fitToBounds(b, CAMERA_PADDING, COLLAPSED_CAMERA_ANIMATION_MS);
-    shell.settleCollapsedLayout();
-  }, [
-    b,
-    fitToBounds,
-    resetPitchAndHeading,
-    shell.expanded,
-    shell.mountNativeMap,
-    shell.settleCollapsedLayout,
-  ]);
+  /**
+   * Frame geographic bounds with explicit center+zoom (same approach as collapsed
+   * recenter). Native Mapbox bounds→zoom can leave zoom stuck after point focus
+   * ({@link POINT_FOCUS_MIN_ZOOM}); this path forces a computed zoom instead.
+   */
+  const fitFocusedBounds = useCallback(
+    (
+      bounds: Bounds,
+      padding: {
+        paddingTop: number;
+        paddingBottom: number;
+        paddingLeft: number;
+        paddingRight: number;
+      },
+      duration = MINIMAP_FIT_BOUNDS_ANIMATION_MS,
+      options?: { heading?: number; pitch?: number; markFitted?: boolean },
+    ) => {
+      const stop = boundsFocusCameraStop(
+        bounds,
+        { width: windowWidth, height: windowHeight },
+        padding,
+        duration,
+        {
+          offsetCenterWithPadding: true,
+          ...(options?.heading != null ? { heading: options.heading } : {}),
+          ...(options?.pitch != null ? { pitch: options.pitch } : {}),
+        },
+      );
+      if (stop == null) {
+        fitToBounds(bounds, padding, duration, {
+          markFitted: options?.markFitted,
+        });
+        return;
+      }
+      cameraRef.current?.setCamera(stop);
+      if (options?.markFitted === true) {
+        markCameraFittedToBoundsAfter(duration + 80);
+      }
+    },
+    [
+      cameraRef,
+      fitToBounds,
+      markCameraFittedToBoundsAfter,
+      windowHeight,
+      windowWidth,
+    ],
+  );
+
+  /**
+   * Collapsed recenter uses an explicit center+zoom (not native bounds→zoom).
+   * After focus, Mapbox's bounds fit updates center but can leave zoom pinned at
+   * the focused level when the surface size is wrong post-collapse animation.
+   */
+  const applyCollapsedCamera = useCallback(
+    (size: { width: number; height: number }) => {
+      if (!shell.mountNativeMap || shell.expanded) return;
+      const stop = boundsFocusCameraStop(
+        b,
+        size,
+        CAMERA_PADDING,
+        COLLAPSED_CAMERA_ANIMATION_MS,
+        { heading: 0, pitch: 0 },
+      );
+      if (stop == null) {
+        fitToBounds(b, CAMERA_PADDING, COLLAPSED_CAMERA_ANIMATION_MS);
+        shell.settleCollapsedLayout();
+        return;
+      }
+      cameraRef.current?.setCamera(stop);
+      shell.settleCollapsedLayout();
+    },
+    [
+      b,
+      cameraRef,
+      fitToBounds,
+      shell.expanded,
+      shell.mountNativeMap,
+      shell.settleCollapsedLayout,
+    ],
+  );
 
   const applyExpandedCamera = useCallback(() => {
     if (!shell.mountNativeMap || !shell.expanded) return;
-    fitToBounds(b, shell.expandedPadding, MINIMAP_FIT_BOUNDS_ANIMATION_MS, {
+    fitFocusedBounds(b, shell.expandedPadding, MINIMAP_FIT_BOUNDS_ANIMATION_MS, {
       markFitted: true,
     });
-  }, [b, fitToBounds, shell.expanded, shell.expandedPadding, shell.mountNativeMap]);
+  }, [b, fitFocusedBounds, shell.expanded, shell.expandedPadding, shell.mountNativeMap]);
 
   const { markPendingCollapsedCamera, markPendingExpandedCamera, onMapLayout } =
     useMiniMapViewportCameraOnLayout({
@@ -335,10 +433,17 @@ export function PageMiniMapView({
     setSelectedLineHighlight(null);
     setSelectedLineStyle(null);
     lineHighlightWaitForCameraRef.current = false;
-    fitToBounds(b, shell.expandedPadding, MINIMAP_FIT_BOUNDS_ANIMATION_MS, {
+    beginCameraFocus();
+    fitFocusedBounds(b, shell.expandedPadding, MINIMAP_FIT_BOUNDS_ANIMATION_MS, {
       markFitted: true,
     });
-  }, [clearMapSelections, fitToBounds, b, shell.expandedPadding]);
+  }, [
+    beginCameraFocus,
+    clearMapSelections,
+    fitFocusedBounds,
+    b,
+    shell.expandedPadding,
+  ]);
 
   const userLocationCoord = useForegroundUserLocation(
     shell.expanded && shell.mapBodyVisible,
@@ -543,6 +648,7 @@ export function PageMiniMapView({
         ) as GeoJSON.Feature<GeoJSON.LineString> | undefined;
 
         if (pointHit?.geometry?.type === "Point") {
+          const focusGen = beginCameraFocus();
           markCameraMovedFromBounds();
           const props = pointHit.properties as Record<string, unknown> | null;
           const key = String(props?.legendId ?? "").trim();
@@ -554,6 +660,7 @@ export function PageMiniMapView({
           setSelectedSegmentKey(key);
           setRelevantExpanded(true);
           const z = await map.getZoom();
+          if (cameraFocusGenerationRef.current !== focusGen) return;
           cameraRef.current?.setCamera(
             pointFocusCameraStop([lng, lat], z, focusPaddingRef.current),
           );
@@ -568,6 +675,7 @@ export function PageMiniMapView({
         }
 
         if (lineHit?.geometry?.type === "LineString") {
+          beginCameraFocus();
           markCameraMovedFromBounds();
           const lineName = String(
             (lineHit.properties as Record<string, unknown> | null)?.name ?? "",
@@ -587,7 +695,7 @@ export function PageMiniMapView({
           focusedFeatureRef.current =
             fitBounds != null ? { type: "bounds", bounds: fitBounds } : null;
           if (fitBounds != null) {
-            fitToBounds(fitBounds, focusPaddingRef.current);
+            fitFocusedBounds(fitBounds, focusPaddingRef.current);
           }
           setSelectedSegmentKey(key);
           setRelevantExpanded(true);
@@ -605,12 +713,13 @@ export function PageMiniMapView({
       clearMapSelections();
     },
     [
+      beginCameraFocus,
       shell.expanded,
       cameraRef,
       clearMapSelections,
       hasPageLegend,
       miniMap.legend,
-      fitToBounds,
+      fitFocusedBounds,
       markCameraMovedFromBounds,
     ],
   );
@@ -630,6 +739,7 @@ export function PageMiniMapView({
 
   const handleLegendSelectSegment = useCallback(
     (key: string) => {
+      const focusGen = beginCameraFocus();
       markCameraMovedFromBounds();
       setPointTooltip(null);
       selectedPointLngLatRef.current = null;
@@ -644,6 +754,7 @@ export function PageMiniMapView({
         lineHighlightWaitForCameraRef.current = false;
         void (async () => {
           const z = (await mapRef.current?.getZoom()) ?? POINT_FOCUS_MIN_ZOOM;
+          if (cameraFocusGenerationRef.current !== focusGen) return;
           cameraRef.current?.setCamera(
             pointFocusCameraStop(lngLat, z, focusPaddingRef.current),
           );
@@ -657,10 +768,16 @@ export function PageMiniMapView({
       lineHighlightWaitForCameraRef.current =
         willFit && isLineRowSelectionKey(key, miniMap.legend);
       if (bounds != null) {
-        fitToBounds(bounds, focusPaddingRef.current);
+        fitFocusedBounds(bounds, focusPaddingRef.current);
       }
     },
-    [miniMap.legend, fitToBounds, markCameraMovedFromBounds, cameraRef],
+    [
+      beginCameraFocus,
+      miniMap.legend,
+      fitFocusedBounds,
+      markCameraMovedFromBounds,
+      cameraRef,
+    ],
   );
 
   useEffect(() => {
@@ -669,12 +786,21 @@ export function PageMiniMapView({
 
   const { insets } = shell;
   const headerTop = insets.top + headerChrome.rowTopInset;
+  const buttonStackTop = expandedMiniMapHeaderRowStackTop(
+    headerTop,
+    headerChrome,
+    mapChrome,
+  );
 
   const legendMaxH = windowHeight / 3;
-  /** Tab bar + home indicator + gap so the legend sits above the tab bar (same as docked RoutePreview). */
+  const overlayEdgeGap = useMemo(
+    () => expandedMiniMapOverlayEdgeGap(uiScale, fontScale),
+    [uiScale, fontScale],
+  );
+  /** Tab bar + scaled gap so the legend sits above the tab bar (same as docked RoutePreview). */
   const legendBottomOffset = useMemo(
-    () => tabBarHeight + 12,
-    [tabBarHeight],
+    () => expandedMiniMapOverlayBottomOffset(tabBarHeight, uiScale, fontScale),
+    [tabBarHeight, uiScale, fontScale],
   );
 
   const selectedLegendItem = useMemo(
@@ -685,16 +811,76 @@ export function PageMiniMapView({
     [miniMap.legend, selectedSegmentKey],
   );
 
-  const relevantContent = useMemo(
-    () =>
-      selectedLegendItem != null
-        ? buildRelevantContextContent(selectedLegendItem, betaSectionLookup)
-        : null,
-    [selectedLegendItem, betaSectionLookup],
-  );
+  const relevantContent = useMemo(() => {
+    if (!settings.showRelevantContext || selectedLegendItem == null) return null;
+    return buildRelevantContextContent(
+      selectedLegendItem,
+      betaSectionLookup,
+      imageLookup,
+      measurementsLookup,
+      settings.showRelevantContextStrengths,
+    );
+  }, [
+    settings.showRelevantContext,
+    settings.showRelevantContextStrengths,
+    selectedLegendItem,
+    betaSectionLookup,
+    imageLookup,
+    measurementsLookup,
+  ]);
 
   const showRelevantInfo =
     shell.expanded && selectedLegendItem != null && relevantContent != null;
+
+  /**
+   * Keep the last Relevant Info payload mounted while the map is expanded so
+   * Fabric does not remount the Relevant Info tree on every selection change.
+   * Hide via opacity when the current selection has no content.
+   */
+  const [pinnedRelevant, setPinnedRelevant] = useState<{
+    content: RelevantContextContent;
+    legendItemName: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (relevantContent != null && selectedLegendItem != null) {
+      setPinnedRelevant({
+        content: relevantContent,
+        legendItemName: selectedLegendItem.name,
+      });
+    }
+  }, [relevantContent, selectedLegendItem]);
+
+  useEffect(() => {
+    if (!shell.expanded) {
+      setPinnedRelevant(null);
+      setRelevantFootprint(null);
+    }
+  }, [shell.expanded]);
+
+  useEffect(() => {
+    setPinnedRelevant(null);
+    setRelevantFootprint(null);
+  }, [miniMapReloadKey]);
+
+  useEffect(() => {
+    if (!showRelevantInfo) {
+      setRelevantFootprint(null);
+    }
+  }, [showRelevantInfo]);
+
+  const lineHighlightShape =
+    selectedLineHighlight != null && selectedLineHighlight.features.length > 0
+      ? selectedLineHighlight
+      : EMPTY_LINE_HIGHLIGHT;
+  const lineHighlightStroke =
+    selectedLineStyle?.stroke ?? map.focusedLineSegment;
+  const lineHighlightWidth =
+    selectedLineStyle?.strokeWidth ?? DEFAULT_LINE_HIGHLIGHT_WIDTH;
+  const lineHighlightOpacity =
+    selectedLineHighlight != null && selectedLineHighlight.features.length > 0
+      ? 1
+      : 0;
 
   /**
    * When Relevant Info is visible, split the pair around the screen center so the
@@ -753,16 +939,27 @@ export function PageMiniMapView({
     if (!shell.expanded) return;
     const focused = focusedFeatureRef.current;
     if (focused == null) return;
+    const focusGen = beginCameraFocus();
     if (focused.type === "point") {
+      const lngLat = focused.lngLat;
       void (async () => {
         const z = (await mapRef.current?.getZoom()) ?? POINT_FOCUS_MIN_ZOOM;
-        cameraRef.current?.setCamera(pointFocusCameraStop(focused.lngLat, z, focusPadding));
+        if (cameraFocusGenerationRef.current !== focusGen) return;
+        if (focusedFeatureRef.current?.type !== "point") return;
+        cameraRef.current?.setCamera(pointFocusCameraStop(lngLat, z, focusPadding));
         void refreshTooltipScreenPosition();
       })();
       return;
     }
-    fitToBounds(focused.bounds, focusPadding);
-  }, [focusPadding, shell.expanded, fitToBounds, cameraRef, refreshTooltipScreenPosition]);
+    fitFocusedBounds(focused.bounds, focusPadding);
+  }, [
+    beginCameraFocus,
+    focusPadding,
+    shell.expanded,
+    fitFocusedBounds,
+    cameraRef,
+    refreshTooltipScreenPosition,
+  ]);
 
   const pagePointLabelStyle = useMemo(
     () => pagePointLabelSymbolStyle(map.marker, markerMetrics, markerTextFont),
@@ -859,32 +1056,28 @@ export function PageMiniMapView({
                 style={pagePointIconStyle}
               />
             </VectorSource>
-            {selectedLineHighlight != null &&
-            selectedLineStyle != null &&
-            selectedLineHighlight.features.length > 0 ? (
-              <ShapeSource id={PAGE_SELECTED_HALO_SOURCE_ID} shape={selectedLineHighlight}>
-                <LineLayer
-                  id={PAGE_SELECTED_HALO_LAYER_ID}
-                  style={{
-                    lineColor: contrastHaloColor(selectedLineStyle.stroke),
-                    lineWidth: Math.max(8, selectedLineStyle.strokeWidth + 6),
-                    lineOpacity: 1,
-                    lineCap: "round",
-                    lineJoin: "round",
-                  }}
-                />
-                <LineLayer
-                  id={PAGE_SELECTED_OVERLAY_LAYER_ID}
-                  style={{
-                    lineColor: selectedLineStyle.stroke,
-                    lineWidth: selectedLineStyle.strokeWidth,
-                    lineOpacity: 1,
-                    lineCap: "round",
-                    lineJoin: "round",
-                  }}
-                />
-              </ShapeSource>
-            ) : null}
+            <ShapeSource id={PAGE_SELECTED_HALO_SOURCE_ID} shape={lineHighlightShape}>
+              <LineLayer
+                id={PAGE_SELECTED_HALO_LAYER_ID}
+                style={{
+                  lineColor: contrastHaloColor(lineHighlightStroke),
+                  lineWidth: Math.max(8, lineHighlightWidth + 6),
+                  lineOpacity: lineHighlightOpacity,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
+              <LineLayer
+                id={PAGE_SELECTED_OVERLAY_LAYER_ID}
+                style={{
+                  lineColor: lineHighlightStroke,
+                  lineWidth: lineHighlightWidth,
+                  lineOpacity: lineHighlightOpacity,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
+            </ShapeSource>
           </MapView>
           {shell.expanded && pointTooltip != null ? (
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -922,7 +1115,7 @@ export function PageMiniMapView({
             onHeaderHeightChange={setHeaderHeight}
           />
           {hasPageLegend && miniMap.legend != null ? (
-            <PageMiniMapLegend
+            <MapLegendPanel
               legend={miniMap.legend}
               expanded={legendExpanded}
               selectedKey={selectedSegmentKey}
@@ -930,27 +1123,41 @@ export function PageMiniMapView({
               maxHeight={legendMaxH}
               leftOffset={legendLeftOffset}
               bottomOffset={legendBottomOffset}
-              rightInset={insets.right}
+              rightInset={insets.right + overlayEdgeGap}
               onToggleExpanded={() => setLegendExpanded((e) => !e)}
               onSelectLegendId={handleLegendSelectSegment}
               onExpandedFootprintChange={setLegendFootprint}
             />
           ) : null}
-          {showRelevantInfo && relevantContent != null && selectedLegendItem != null ? (
-            <MiniMapRelevantContext
-              content={relevantContent}
-              legendItemName={selectedLegendItem.name}
-              miniMapTitle={miniMap.title}
-              expanded={relevantExpanded}
-              maxHeight={legendMaxH}
-              leftOffset={insets.left + 12}
-              rightOffset={relevantInfoRightOffset}
-              bottomOffset={legendBottomOffset}
-              onToggleExpanded={() => setRelevantExpanded((e) => !e)}
-              onExpandedFootprintChange={setRelevantFootprint}
-            />
+          {pinnedRelevant != null ? (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                !showRelevantInfo ? styles.relevantInfoHidden : null,
+              ]}
+              pointerEvents={showRelevantInfo ? "box-none" : "none"}
+            >
+              <RelevantInfoPanel
+                content={pinnedRelevant.content}
+                legendItemName={
+                  showRelevantInfo && selectedLegendItem != null
+                    ? selectedLegendItem.name
+                    : pinnedRelevant.legendItemName
+                }
+                miniMapTitle={miniMap.title}
+                expanded={showRelevantInfo && relevantExpanded}
+                maxHeight={legendMaxH}
+                leftOffset={insets.left + overlayEdgeGap}
+                rightOffset={relevantInfoRightOffset}
+                bottomOffset={legendBottomOffset}
+                onToggleExpanded={() => setRelevantExpanded((e) => !e)}
+                onExpandedFootprintChange={
+                  showRelevantInfo ? setRelevantFootprint : undefined
+                }
+              />
+            </View>
           ) : null}
-          <ButtonStack top={headerTop}>
+          <ButtonStack top={buttonStackTop}>
             <ButtonStack.Slot id="bounds" visible={boundsResetButtonVisible}>
               <ResetCameraToBoundsButton
                 stacked
@@ -999,5 +1206,9 @@ const styles = StyleSheet.create({
   },
   tooltipText: {
     color: "#fff",
+  },
+  /** Keep Relevant Info mounted but invisible when the current selection has no content. */
+  relevantInfoHidden: {
+    opacity: 0,
   },
 });

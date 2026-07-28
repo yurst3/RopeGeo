@@ -1,5 +1,6 @@
 import { ConstantText } from "@/components/text/ConstantText";
 import { FontSettingsSection } from "@/components/screens/settings/FontSettingsSection";
+import { RelevantInfoSettingsSection } from "@/components/screens/settings/RelevantInfoSettingsSection";
 import { ThemeSettingsSection } from "@/components/screens/settings/ThemeSettingsSection";
 import { UiScaleSettingsSection } from "@/components/screens/settings/UiScaleSettingsSection";
 import { UnitsSettingsSection } from "@/components/screens/settings/UnitsSettingsSection";
@@ -17,7 +18,15 @@ export function SettingsScreen() {
   const uiScale = useUiScale();
   const textStyle = useTextStyle();
   const insets = useSafeAreaInsets();
-  const { settings, setTheme, setFont, setUiScale, setUnits } = useSettings();
+  const {
+    settings,
+    setTheme,
+    setFont,
+    setUiScale,
+    setUnits,
+    setShowRelevantContext,
+    setShowRelevantContextStrengths,
+  } = useSettings();
 
   return (
     <View style={[styles.screen, { backgroundColor: background }]}>
@@ -77,6 +86,14 @@ export function SettingsScreen() {
         <UnitsSettingsSection
           value={settings.lengthMeasurementSystem}
           onChange={setUnits}
+        />
+
+        <RelevantInfoSettingsSection
+          showRelevantContext={settings.showRelevantContext}
+          strengthMin={settings.showRelevantContextStrengths.min}
+          strengthMax={settings.showRelevantContextStrengths.max}
+          onShowRelevantContextChange={setShowRelevantContext}
+          onStrengthsChange={setShowRelevantContextStrengths}
         />
       </ScrollView>
     </View>

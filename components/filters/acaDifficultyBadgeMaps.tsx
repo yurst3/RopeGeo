@@ -22,6 +22,7 @@ import { SwimmingWaterBadge } from "@/components/badges/difficulty/SwimmingWater
 import { TechnicalBadge } from "@/components/badges/difficulty/TechnicalBadge";
 import { VeryHighRiskBadge } from "@/components/badges/difficulty/VeryHighRiskBadge";
 import { VeryTechnicalBadge } from "@/components/badges/difficulty/VeryTechnicalBadge";
+import type { BadgeThumbProps } from "@/components/sliders/DiscreteRangeSlider";
 import {
   AcaRiskSubRating,
   AcaTechnicalSubRating,
@@ -29,7 +30,7 @@ import {
   AcaWaterSubRating,
 } from "ropegeo-common/models";
 
-export type BadgeThumbProps = { showLabel?: boolean };
+export type { BadgeThumbProps };
 
 export const ACA_TECHNICAL_BADGES: Record<
   AcaTechnicalSubRating,

@@ -5,6 +5,7 @@ import type {
   AcaWaterSubRating,
   DifficultyRatingSystem,
   PermitStatus,
+  RelevanceStrength,
   RopewikiVehicleType,
   RouteType,
 } from "ropegeo-common/models";
@@ -113,6 +114,11 @@ export type SubBadgeColors = {
   icon: string;
 };
 
+export type RelevanceStrengthBadgeColors = {
+  background: string;
+  icon: string;
+};
+
 export type BadgeColors = {
   difficultyRating: Record<
     DifficultyRatingSystem,
@@ -122,6 +128,7 @@ export type BadgeColors = {
   permit: Record<PermitStatus, PermitBadgeColors>;
   shuttle: Record<ShuttleBadgeKeys, ShuttleBadgeColors>;
   vehicle: Record<RopewikiVehicleType, VehicleBadgeColors>;
+  relevanceStrength: Record<RelevanceStrength, RelevanceStrengthBadgeColors>;
   unknown: UnknownBadgeColors;
   placeholder: string;
   subBadge: SubBadgeColors;

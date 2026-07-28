@@ -8,10 +8,15 @@ const EXPANDED_MAP_MIN_WIDTH_RATIO = 0.9;
 /** Frames to retry collapsed fit after expand flips false (layout may settle after onLayout). */
 const COLLAPSED_APPLY_MAX_FRAMES = 20;
 
+export type MapLayoutSize = { width: number; height: number };
+
 /**
  * Defers camera updates until {@link MapView} `onLayout` reports a stable viewport:
  * - collapsed: square layout (post-collapse animation)
  * - expanded: near full window width (post-expand animation)
+ *
+ * The collapsed callback receives the stable layout size so callers can compute
+ * an explicit zoom (e.g. page minimaps) without relying on native bounds→zoom.
  */
 export function useMiniMapViewportCameraOnLayout({
   expanded,
@@ -19,7 +24,7 @@ export function useMiniMapViewportCameraOnLayout({
   onExpandedLayoutStable,
 }: {
   expanded: boolean;
-  onCollapsedLayoutStable?: () => void;
+  onCollapsedLayoutStable?: (size: MapLayoutSize) => void;
   onExpandedLayoutStable?: () => void;
 }) {
   const pendingCollapsedRef = useRef(false);
@@ -53,7 +58,7 @@ export function useMiniMapViewportCameraOnLayout({
       const layoutKey = `${Math.round(width)}x${Math.round(height)}`;
       lastCollapsedLayoutKeyRef.current = layoutKey;
       pendingCollapsedRef.current = false;
-      onCollapsedRef.current?.();
+      onCollapsedRef.current?.({ width, height });
       return true;
     },
     [],

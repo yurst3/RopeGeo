@@ -29,7 +29,7 @@ import { ScalingText } from "@/components/text/ScalingText";
 import { useTextStyle } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
 import { fullRangeAcaDifficultyFilterOptions } from "@/utils/filters/defaultAcaDifficultyFilterOptions";
-import { AcaDiscreteRangeSlider } from "./AcaDiscreteRangeSlider";
+import { DiscreteRangeSlider } from "@/components/sliders/DiscreteRangeSlider";
 import {
   ACA_RISK_BADGES,
   ACA_RISK_THUMB_TITLES,
@@ -41,6 +41,7 @@ import {
   ACA_WATER_THUMB_TITLES,
 } from "./acaDifficultyBadgeMaps";
 import { useFilterTheme } from "@/utils/filters/useFilterTheme";
+
 
 function orderedEnum<T extends string>(
   values: readonly T[],
@@ -255,7 +256,7 @@ export function DifficultyFilterOptions({
 
       {selectedType === DifficultyRatingSystem.ACA && acaOptions != null ? (
         <View style={styles.acaBlock}>
-          <AcaDiscreteRangeSlider
+          <DiscreteRangeSlider
             label="Technical Rating"
             orderedValues={ORDERED_TECHNICAL}
             min={acaOptions.technical.min}
@@ -273,7 +274,7 @@ export function DifficultyFilterOptions({
               )
             }
           />
-          <AcaDiscreteRangeSlider
+          <DiscreteRangeSlider
             label="Water Rating"
             orderedValues={ORDERED_WATER}
             min={acaOptions.water.min}
@@ -291,7 +292,7 @@ export function DifficultyFilterOptions({
               )
             }
           />
-          <AcaDiscreteRangeSlider
+          <DiscreteRangeSlider
             label="Time Rating"
             orderedValues={ORDERED_TIME}
             min={acaOptions.time.min}
@@ -310,7 +311,7 @@ export function DifficultyFilterOptions({
             }
           />
           <View>
-            <AcaDiscreteRangeSlider
+            <DiscreteRangeSlider
               label="Effective Risk Rating"
               orderedValues={ORDERED_RISK}
               min={acaOptions.effectiveRisk.min}

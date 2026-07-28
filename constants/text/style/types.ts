@@ -63,6 +63,9 @@ export type MapTypography = {
   relevantInfoMeasurement: TypographySpec;
   relevantInfoSectionTitle: TypographySpec;
   relevantInfoBody: TypographySpec;
+  relevantInfoStrengthLabel: TypographySpec;
+  relevantInfoHiddenPill: TypographySpec;
+  measurementContextPill: TypographySpec;
   relevantInfoCaption: TypographySpec;
   relevantInfoError: TypographySpec;
 };

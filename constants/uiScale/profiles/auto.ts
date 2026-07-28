@@ -316,6 +316,27 @@ export const autoUiScaleProfile: UiScaleProfile = {
         background: { scale: 1.0, accessibilityScalingStrength: 0.4 },
         icon: { scale: 1.0, accessibilityScalingStrength: 0.4 },
       },
+      relevantInfoStrengthLabel: {
+        icon: { scale: 1.0, accessibilityScalingStrength: 0.4 },
+        text: {
+          default: FontSizeStep.XSMALL,
+          floor: FontSizeStep.XSMALL,
+        },
+      },
+      relevantInfoHiddenPill: {
+        icon: { scale: 1.0, accessibilityScalingStrength: 0.4 },
+        text: {
+          default: FontSizeStep.XSMALL,
+          floor: FontSizeStep.XSMALL,
+        },
+      },
+      measurementContextPill: {
+        icon: { scale: 1.0, accessibilityScalingStrength: 0.4 },
+        text: {
+          default: FontSizeStep.SMALL,
+          floor: FontSizeStep.XSMALL,
+        },
+      },
     },
   },
   tabs: {

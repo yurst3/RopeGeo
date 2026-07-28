@@ -1,9 +1,13 @@
 import { useColorTheme } from "@/context/theme/ColorThemeContext";
 import { useMemo } from "react";
-import { StyleSheet, type ViewStyle } from "react-native";
+import { StyleSheet, type TextStyle, type ViewStyle } from "react-native";
 
 /** Fixed width for the badge column on info screens. */
 export const INFO_BADGE_COLUMN_WIDTH = 80;
+
+/** Text-only margins (typed as TextStyle so they can pass to ConstantText). */
+const subtitleStyle: TextStyle = { marginBottom: 24 };
+const minimumForStyle: TextStyle = { marginBottom: 4 };
 
 const layout = StyleSheet.create({
   screen: {
@@ -19,9 +23,6 @@ const layout = StyleSheet.create({
     minHeight: 44,
     justifyContent: "center",
     marginBottom: 12,
-  },
-  subtitle: {
-    marginBottom: 24,
   },
   cClassNote: {
     marginBottom: 20,
@@ -47,9 +48,6 @@ const layout = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  minimumFor: {
-    marginBottom: 4,
-  },
 });
 
 export type InfoScreenStyles = {
@@ -57,13 +55,14 @@ export type InfoScreenStyles = {
   scroll: ViewStyle;
   content: ViewStyle;
   titleRow: ViewStyle;
-  subtitle: ViewStyle;
+  /** Margin for subtitle / section header text nodes. */
+  subtitle: TextStyle;
   cClassNote: ViewStyle;
   row: ViewStyle;
   rowHighlighted: ViewStyle;
   badgeWrap: ViewStyle;
   descriptionWrap: ViewStyle;
-  minimumFor: ViewStyle;
+  minimumFor: TextStyle;
 };
 
 export function useInfoScreenStyles(): InfoScreenStyles {
@@ -75,7 +74,7 @@ export function useInfoScreenStyles(): InfoScreenStyles {
       scroll: { ...layout.scroll, backgroundColor: background },
       content: layout.content,
       titleRow: layout.titleRow,
-      subtitle: layout.subtitle,
+      subtitle: subtitleStyle,
       cClassNote: layout.cClassNote,
       row: layout.row,
       rowHighlighted: {
@@ -85,7 +84,7 @@ export function useInfoScreenStyles(): InfoScreenStyles {
       },
       badgeWrap: layout.badgeWrap,
       descriptionWrap: layout.descriptionWrap,
-      minimumFor: layout.minimumFor,
+      minimumFor: minimumForStyle,
     }),
     [background, cardHighlight],
   );

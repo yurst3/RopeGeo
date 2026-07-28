@@ -62,7 +62,7 @@ function legendSwatchMetrics(iconScale: number) {
   };
 }
 
-export type PageMiniMapLegendProps = {
+export type MapLegendPanelProps = {
   /** Server-provided legend rows (parent only mounts when non-empty). */
   legend: Record<string, LegendItem>;
   expanded: boolean;
@@ -75,8 +75,9 @@ export type PageMiniMapLegendProps = {
   maxHeight: number;
   /** Left edge of the legend panel (typically half the window width). */
   leftOffset: number;
-  /** Distance from the physical bottom of the overlay to the legend (tab bar + safe area + gap). */
+  /** Distance from the physical bottom of the overlay to the legend (tab bar + scaled gap). */
   bottomOffset: number;
+  /** Right edge inset already including the scaled overlay gap. */
   rightInset: number;
   onToggleExpanded: () => void;
   onSelectLegendId: (id: string) => void;
@@ -212,7 +213,7 @@ function LegendItemSwatch({
   );
 }
 
-export function PageMiniMapLegend({
+export function MapLegendPanel({
   legend,
   expanded,
   selectedKey,
@@ -224,7 +225,7 @@ export function PageMiniMapLegend({
   onToggleExpanded,
   onSelectLegendId,
   onExpandedFootprintChange,
-}: PageMiniMapLegendProps) {
+}: MapLegendPanelProps) {
   const themeColors = useColorTheme();
   const uiScale = useUiScale();
   const textStyle = useTextStyle();
@@ -349,7 +350,7 @@ export function PageMiniMapLegend({
     <View
       style={[
         styles.anchor,
-        { bottom: bottomOffset, left: leftOffset, right: rightInset + 12 },
+        { bottom: bottomOffset, left: leftOffset, right: rightInset },
       ]}
       pointerEvents="box-none"
     >

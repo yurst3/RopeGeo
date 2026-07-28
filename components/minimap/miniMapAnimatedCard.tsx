@@ -8,12 +8,14 @@ import {
   useMiniMapAnimation,
 } from "@/utils/minimap/useMiniMapAnimation";
 import { PlaceholderMiniMap } from "@/components/minimap/PlaceholderMiniMap";
+import { useUiScaleProfileKey } from "@/context/typography/UIScaleContext";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -21,9 +23,12 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { BackHandler, Dimensions, StyleSheet, View } from "react-native";
+import { BackHandler, Dimensions, StyleSheet, useWindowDimensions, View } from "react-native";
 import Animated from "react-native-reanimated";
 import type { EdgeInsets } from "react-native-safe-area-context";
+
+/** Frames of post-layout remeasurement after uiScale/window changes while expanded. */
+const EXPAND_LAYOUT_STABILIZE_FRAMES = 12;
 
 export type MiniMapShellApi = {
   mountNativeMap: boolean;
@@ -190,6 +195,9 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
       finishCollapse,
     ]);
 
+    const uiScaleProfileKey = useUiScaleProfileKey();
+    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+
     const { cardStyle, expandedChromeStyle, expandedPadding, insets } = useMiniMapAnimation({
       expandLayout,
       expanded,
@@ -228,6 +236,34 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
       if (!expanded || !mountNativeMap || expandLayout != null) return;
       remeasureLayout();
     }, [expanded, mountNativeMap, expandLayout, remeasureLayout]);
+
+    const expandedRef = useRef(expanded);
+    expandedRef.current = expanded;
+    const mountNativeMapRef = useRef(mountNativeMap);
+    mountNativeMapRef.current = mountNativeMap;
+
+    /**
+     * Gate window Y can move after uiScale reflow (siblings above the map change height)
+     * without the gate receiving onLayout. Remeasure across several animation frames so
+     * expand rects stay pinned once layout settles.
+     */
+    useLayoutEffect(() => {
+      if (!expandedRef.current || !mountNativeMapRef.current) return;
+      let cancelled = false;
+      let frame = 0;
+      const tick = () => {
+        if (cancelled) return;
+        remeasureLayout();
+        frame += 1;
+        if (frame < EXPAND_LAYOUT_STABILIZE_FRAMES) {
+          requestAnimationFrame(tick);
+        }
+      };
+      requestAnimationFrame(tick);
+      return () => {
+        cancelled = true;
+      };
+    }, [uiScaleProfileKey, windowWidth, windowHeight, remeasureLayout]);
 
     const handleExpandPress = useCallback(() => {
       void measureExpandLayout(expandAnchorRef, collapsedMeasureRef).then((layout) => {

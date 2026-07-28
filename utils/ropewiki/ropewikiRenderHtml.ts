@@ -1,6 +1,7 @@
 import type { ThemeColors } from "@/constants/colors/types";
 import { EMBEDDED_FONT_POSTSCRIPT_NAMES } from "@/constants/text/font/fontAssets";
 import { FontSizeStep } from "@/constants/uiScale/types";
+import { RELEVANT_PHRASE_HTML_TAG } from "ropegeo-common/models";
 import {
   HTMLContentModel,
   HTMLElementModel,
@@ -28,6 +29,24 @@ export const ROPEWIKI_HTML_DEFAULT_TEXT_PROPS = {
   allowFontScaling: false,
 } as const;
 
+/**
+ * Line-height / font-size ratio used by react-native-render-html list markers
+ * (`14 * 1.3`). Keep body text on the same ratio so disc/circle/square markers
+ * stay vertically aligned across uiScale sizes.
+ */
+export const ROPEWIKI_HTML_LINE_HEIGHT_RATIO = 1.3;
+
+/** Pixel line height derived from a resolved HTML body/caption font size. */
+export function deriveRopewikiHtmlLineHeight(fontSize: number): number {
+  return Math.round(fontSize * ROPEWIKI_HTML_LINE_HEIGHT_RATIO);
+}
+
+/**
+ * htmlparser2 lowercases tag names, so `<RelevantPhrase>` is matched as
+ * `relevantphrase` in RenderHtml models / tagsStyles.
+ */
+export const RELEVANT_PHRASE_RENDER_TAG = RELEVANT_PHRASE_HTML_TAG.toLowerCase();
+
 /** Legacy `<font color="…">` (common in Ropewiki beta HTML). */
 function normalizeFontTagColor(raw: string): string | null {
   const value = raw.trim();
@@ -48,6 +67,10 @@ export const ROPEWIKI_CUSTOM_HTML_ELEMENT_MODELS: HTMLElementModelRecord = {
       const color = normalizeFontTagColor(raw);
       return color != null ? { color } : undefined;
     },
+  }),
+  [RELEVANT_PHRASE_RENDER_TAG]: HTMLElementModel.fromCustomModel({
+    tagName: RELEVANT_PHRASE_RENDER_TAG,
+    contentModel: HTMLContentModel.textual,
   }),
 };
 
@@ -73,6 +96,19 @@ function boldTagStyle(boldFontFamily?: string) {
     : { fontWeight: "700" as const };
 }
 
+/** Lighter than {@link boldTagStyle} so RelevantPhrase can read as heavier emphasis. */
+function secondaryEmphasisStyle(bodyFontFamily?: string) {
+  return bodyFontFamily != null
+    ? { fontFamily: bodyFontFamily }
+    : { fontWeight: "600" as const };
+}
+
+function relevantPhraseTagStyle(color: string, boldFontFamily?: string) {
+  return boldFontFamily != null
+    ? { color, fontFamily: boldFontFamily }
+    : { color, fontWeight: "900" as const };
+}
+
 export type RopewikiHtmlTagsStyleColors = Pick<ThemeColors["text"], "link" | "secondary"> & {
   /** Defaults to {@link ThemeColors.text.secondary}. */
   captionColor?: string;
@@ -85,10 +121,20 @@ export type RopewikiHtmlTagsStyleColors = Pick<ThemeColors["text"], "link" | "se
   captionTextAlign?: "left" | "center" | "right";
   /** Resolved body copy size; normalizes block/heading tags to the body token. */
   bodyFontSize?: number;
+  /**
+   * Derived via {@link deriveRopewikiHtmlLineHeight} from `bodyFontSize`.
+   * Applied to block tags so list markers share the same line box as content.
+   */
+  bodyLineHeight?: number;
   /** Body face for block tags when using embedded fonts. */
   bodyFontFamily?: string;
   /** Bold face for `b`/`strong`/headings when using embedded fonts. */
   bodyBoldFontFamily?: string;
+  /**
+   * When set, styles `<RelevantPhrase>` with this color and a heavier weight than
+   * `b`/`strong` (which are softened so the phrase stands out).
+   */
+  relevantPhraseColor?: string;
 };
 
 export function buildRopewikiHtmlTagsStyles({
@@ -98,18 +144,29 @@ export function buildRopewikiHtmlTagsStyles({
   captionFontSize = FontSizeStep.MEDIUM,
   captionTextAlign = "center",
   bodyFontSize,
+  bodyLineHeight,
   bodyFontFamily,
   bodyBoldFontFamily,
+  relevantPhraseColor,
 }: RopewikiHtmlTagsStyleColors): MixedStyleRecord {
   const boldStyle = boldTagStyle(bodyBoldFontFamily);
+  const emphasisStyle =
+    relevantPhraseColor != null
+      ? secondaryEmphasisStyle(bodyFontFamily)
+      : boldStyle;
   const headingStyle =
     bodyFontSize != null
-      ? { fontSize: bodyFontSize, ...boldStyle }
+      ? {
+          fontSize: bodyFontSize,
+          ...(bodyLineHeight != null ? { lineHeight: bodyLineHeight } : {}),
+          ...boldStyle,
+        }
       : boldStyle;
   const bodyTagStyle =
-    bodyFontSize != null || bodyFontFamily != null
+    bodyFontSize != null || bodyFontFamily != null || bodyLineHeight != null
       ? {
           ...(bodyFontSize != null ? { fontSize: bodyFontSize } : {}),
+          ...(bodyLineHeight != null ? { lineHeight: bodyLineHeight } : {}),
           ...(bodyFontFamily != null ? { fontFamily: bodyFontFamily } : {}),
         }
       : null;
@@ -120,10 +177,18 @@ export function buildRopewikiHtmlTagsStyles({
       textDecorationLine: "underline" as const,
       ...(bodyFontFamily != null ? { fontFamily: bodyFontFamily } : {}),
     },
-    b: boldStyle,
-    strong: boldStyle,
+    b: emphasisStyle,
+    strong: emphasisStyle,
     i: { fontStyle: "italic" as const },
     em: { fontStyle: "italic" as const },
+    ...(relevantPhraseColor != null
+      ? {
+          [RELEVANT_PHRASE_RENDER_TAG]: relevantPhraseTagStyle(
+            relevantPhraseColor,
+            bodyBoldFontFamily,
+          ),
+        }
+      : {}),
     ...(bodyTagStyle != null
       ? {
           p: bodyTagStyle,

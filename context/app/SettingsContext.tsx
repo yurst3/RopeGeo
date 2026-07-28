@@ -2,6 +2,7 @@ import { Settings } from "@/constants/settings";
 import type { FontProfileKey } from "@/constants/text/font/types";
 import type { UiScaleProfileKey } from "@/constants/uiScale/types";
 import type { ThemePreference, UnitsPreference } from "@/constants/settings/types";
+import type { RelevanceStrength } from "ropegeo-common/models";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
 import {
@@ -52,6 +53,11 @@ type SettingsContextValue = {
   setFont: (font: FontProfileKey) => void;
   setUiScale: (uiScale: UiScaleProfileKey) => void;
   setUnits: (units: UnitsPreference) => void;
+  setShowRelevantContext: (show: boolean) => void;
+  setShowRelevantContextStrengths: (
+    min: RelevanceStrength,
+    max: RelevanceStrength,
+  ) => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -142,6 +148,30 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [schedulePersist],
   );
 
+  const setShowRelevantContext = useCallback(
+    (show: boolean) => {
+      setSettings((prev) => {
+        const next = cloneSettings(prev);
+        next.setShowRelevantContext(show);
+        schedulePersist(next);
+        return next;
+      });
+    },
+    [schedulePersist],
+  );
+
+  const setShowRelevantContextStrengths = useCallback(
+    (min: RelevanceStrength, max: RelevanceStrength) => {
+      setSettings((prev) => {
+        const next = cloneSettings(prev);
+        next.setShowRelevantContextStrengths(min, max);
+        schedulePersist(next);
+        return next;
+      });
+    },
+    [schedulePersist],
+  );
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       settings,
@@ -150,8 +180,19 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setFont,
       setUiScale,
       setUnits,
+      setShowRelevantContext,
+      setShowRelevantContextStrengths,
     }),
-    [settings, isLoaded, setTheme, setFont, setUiScale, setUnits],
+    [
+      settings,
+      isLoaded,
+      setTheme,
+      setFont,
+      setUiScale,
+      setUnits,
+      setShowRelevantContext,
+      setShowRelevantContextStrengths,
+    ],
   );
 
   return (

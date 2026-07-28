@@ -278,7 +278,7 @@ export function CenteredRegionMiniMapView({
     [centeredRouteCoordinate, defaultCenter],
   );
 
-  const applyCollapsedCamera = useCallback(() => {
+  const applyCollapsedCamera = useCallback((_size: { width: number; height: number }) => {
     if (!shell.mountNativeMap || shell.expanded) return;
     const centerKey = `${collapsedCameraCenter[0]},${collapsedCameraCenter[1]}`;
     resetPitchAndHeading(COLLAPSED_CAMERA_ANIMATION_MS);

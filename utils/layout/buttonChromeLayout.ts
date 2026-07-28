@@ -37,12 +37,25 @@ export function resolveChromeGapFromSpec(
   );
 }
 
+/** Base distance from screen edge to expanded minimap header / button stack. */
+export const BASE_CHROME_EDGE_INSET = 16;
+/** Base vertical padding inside the expanded minimap title pill. */
+export const BASE_TITLE_BAR_PADDING_VERTICAL = 12;
+/** Base horizontal padding inside the expanded minimap title pill. */
+export const BASE_TITLE_BAR_PADDING_HORIZONTAL = 14;
+/** Base gap above the tab bar for expanded minimap bottom overlays. */
+export const EXPANDED_MINIMAP_OVERLAY_BOTTOM_GAP = 12;
+
 export type HeaderChromeLayout = {
   buttonSize: number;
   gap: number;
   sideSlotWidth: number;
   rowTopInset: number;
   buttonWrapHeight: number;
+  /** Distance from screen edge to the header row (scales with button background). */
+  edgeInset: number;
+  titleBarPaddingVertical: number;
+  titleBarPaddingHorizontal: number;
 };
 
 export function resolveHeaderChromeLayout(
@@ -63,6 +76,15 @@ export function resolveHeaderChromeLayout(
     sideSlotWidth: buttonSize + gap,
     rowTopInset: resolveChromeGap(backgroundScale, MAP_HEADER_ROW_TOP_INSET),
     buttonWrapHeight: buttonSize,
+    edgeInset: resolveChromeGap(backgroundScale, BASE_CHROME_EDGE_INSET),
+    titleBarPaddingVertical: resolveChromeGap(
+      backgroundScale,
+      BASE_TITLE_BAR_PADDING_VERTICAL,
+    ),
+    titleBarPaddingHorizontal: resolveChromeGap(
+      backgroundScale,
+      BASE_TITLE_BAR_PADDING_HORIZONTAL,
+    ),
   };
 }
 
@@ -211,9 +233,55 @@ export function expandedMiniMapButtonStackTopScaled(
   const map = resolveMapButtonChromeLayout(uiScale, fontScale);
   const shiftUpWhenBoundsHidden =
     !boundsResetButtonVisible && !options?.otherHeaderRowActionVisible;
+  const rowTop = shiftUpWhenBoundsHidden
+    ? header.rowTopInset
+    : map.topOffsetBelowHeader;
+  // Center the (often larger) map buttons on the header button row when sharing that row.
+  const alignToHeaderRow = shiftUpWhenBoundsHidden
+    ? (header.buttonWrapHeight - map.buttonSize) / 2
+    : 0;
+  return safeTop + rowTop + alignToHeaderRow;
+}
+
+/**
+ * Top offset for a map {@link ButtonStack} that shares the expanded minimap header row
+ * (bounds/compass/user controls aligned with the back button).
+ */
+export function expandedMiniMapHeaderRowStackTop(
+  headerTop: number,
+  header: HeaderChromeLayout,
+  map: MapButtonChromeLayout,
+): number {
+  return headerTop + (header.buttonWrapHeight - map.buttonSize) / 2;
+}
+
+/** Bottom offset for legend / relevant-info overlays above the tab bar. */
+export function expandedMiniMapOverlayBottomOffset(
+  tabBarHeight: number,
+  uiScale: UiScaleProfile,
+  fontScale: number,
+): number {
   return (
-    safeTop +
-    (shiftUpWhenBoundsHidden ? header.rowTopInset : map.topOffsetBelowHeader)
+    tabBarHeight +
+    resolveChromeGapFromSpec(
+      uiScale,
+      "back",
+      fontScale,
+      EXPANDED_MINIMAP_OVERLAY_BOTTOM_GAP,
+    )
+  );
+}
+
+/** Horizontal inset for bottom overlays (safe-area edge + scaled gap). */
+export function expandedMiniMapOverlayEdgeGap(
+  uiScale: UiScaleProfile,
+  fontScale: number,
+): number {
+  return resolveChromeGapFromSpec(
+    uiScale,
+    "back",
+    fontScale,
+    EXPANDED_MINIMAP_OVERLAY_BOTTOM_GAP,
   );
 }
 

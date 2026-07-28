@@ -212,6 +212,18 @@ export const mediumUiScaleProfile: UiScaleProfile = {
       resetCameraToBounds: { background: { scale: 1.0 }, icon: { scale: 1.0 } },
       appleDirections: { background: { scale: 1.0 }, icon: { scale: 1.0 } },
       googleDirections: { background: { scale: 1.0 }, icon: { scale: 1.0 } },
+      relevantInfoStrengthLabel: {
+        icon: { scale: 1.0 },
+        text: { default: FontSizeStep.XSMALL },
+      },
+      relevantInfoHiddenPill: {
+        icon: { scale: 1.0 },
+        text: { default: FontSizeStep.XSMALL },
+      },
+      measurementContextPill: {
+        icon: { scale: 1.0 },
+        text: { default: FontSizeStep.SMALL },
+      },
     },
   },
   tabs: {

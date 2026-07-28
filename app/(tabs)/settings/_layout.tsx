@@ -10,6 +10,7 @@ export default function SettingsStackLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen name="relevance-info" options={{ headerShown: false }} />
     </Stack>
   );
 }

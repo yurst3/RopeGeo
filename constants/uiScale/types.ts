@@ -150,7 +150,7 @@ export type MapTextSizes = {
   markerTooltip: ConstantTextSizeSpec;
   legendTitle: ScalingTextSizeSpec;
   legendItem: ScalingTextSizeSpec;
-  /** MiniMapRelevantContext card header ("Relevant Info"). */
+  /** RelevantInfoPanel card header ("Relevant Info"). */
   relevantInfoTitle: ScalingTextSizeSpec;
   /** Measurement label/value chips in Relevant Info. */
   relevantInfoMeasurement: ConstantTextSizeSpec;
@@ -172,6 +172,12 @@ export type MapButtonSizes = {
   resetCameraToBounds: ButtonScaleSpec;
   appleDirections: ButtonScaleSpec;
   googleDirections: ButtonScaleSpec;
+  /** RelevanceStrengthPill label + info/badge icons. */
+  relevantInfoStrengthLabel: ButtonScaleSpec;
+  /** HiddenRelevantInfoPill count + hidden/badge icons. */
+  relevantInfoHiddenPill: ButtonScaleSpec;
+  /** MeasurementContextPill label/value text + badge icon. */
+  measurementContextPill: ButtonScaleSpec;
 };
 
 export type TabButtonSizes = {

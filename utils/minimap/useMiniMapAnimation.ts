@@ -1,5 +1,4 @@
 import { boundsPaddingForFullScreenMapScaled } from "@/utils/layout/buttonChromeLayout";
-import { useText } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
 import { useEffect, useMemo, useRef } from "react";
 import { Dimensions, useWindowDimensions } from "react-native";
@@ -63,16 +62,30 @@ export function useMiniMapAnimation({
   );
 
   useEffect(() => {
-    if (expandLayout) {
-      leftSv.value = expandLayout.collapsed.x;
-      topSv.value = expandLayout.collapsed.y;
-      widthSv.value = expandLayout.collapsed.width;
-      heightSv.value = expandLayout.collapsed.height;
-      endLeftSv.value = expandLayout.expanded.x;
-      endTopSv.value = expandLayout.expanded.y;
-      endWidthSv.value = expandLayout.expanded.width;
-      endHeightSv.value = expandLayout.expanded.height;
+    if (!expandLayout) return;
+
+    endLeftSv.value = expandLayout.expanded.x;
+    endTopSv.value = expandLayout.expanded.y;
+    endWidthSv.value = expandLayout.expanded.width;
+    endHeightSv.value = expandLayout.expanded.height;
+
+    /**
+     * While fully expanded, pin BOTH interpolate endpoints to the expanded rect so layout
+     * corrections (uiScale reflow) snap immediately and cannot briefly sample a stale
+     * collapsed origin.
+     */
+    if (progressSv.value >= 0.99) {
+      leftSv.value = expandLayout.expanded.x;
+      topSv.value = expandLayout.expanded.y;
+      widthSv.value = expandLayout.expanded.width;
+      heightSv.value = expandLayout.expanded.height;
+      return;
     }
+
+    leftSv.value = expandLayout.collapsed.x;
+    topSv.value = expandLayout.collapsed.y;
+    widthSv.value = expandLayout.collapsed.width;
+    heightSv.value = expandLayout.collapsed.height;
   }, [
     expandLayout,
     endHeightSv,
@@ -81,6 +94,7 @@ export function useMiniMapAnimation({
     endWidthSv,
     heightSv,
     leftSv,
+    progressSv,
     topSv,
     widthSv,
   ]);
@@ -100,6 +114,15 @@ export function useMiniMapAnimation({
       if (!hasLayout) return;
       const shouldAnimate = changedMode || progressSv.value < 0.99;
       if (!shouldAnimate) return;
+      // Expanding: interpolate from collapsed → expanded.
+      leftSv.value = expandLayout.collapsed.x;
+      topSv.value = expandLayout.collapsed.y;
+      widthSv.value = expandLayout.collapsed.width;
+      heightSv.value = expandLayout.collapsed.height;
+      endLeftSv.value = expandLayout.expanded.x;
+      endTopSv.value = expandLayout.expanded.y;
+      endWidthSv.value = expandLayout.expanded.width;
+      endHeightSv.value = expandLayout.expanded.height;
       progressSv.value = withTiming(1, { duration, easing }, (finished) => {
         if (finished) {
           progressSv.value = 1;
@@ -110,7 +133,19 @@ export function useMiniMapAnimation({
 
     if (!changedMode) return;
     progressSv.value = 0;
-  }, [expandLayout, expanded, progressSv]);
+  }, [
+    expandLayout,
+    expanded,
+    endHeightSv,
+    endLeftSv,
+    endTopSv,
+    endWidthSv,
+    heightSv,
+    leftSv,
+    progressSv,
+    topSv,
+    widthSv,
+  ]);
 
   useEffect(() => {
     if (collapseGeneration === 0) return;
@@ -121,6 +156,16 @@ export function useMiniMapAnimation({
     const duration = MINI_MAP_ANIMATION_MS;
     const collapseEasing = Easing.in(Easing.cubic);
 
+    // Collapse: endpoints must be collapsed at p=0 and expanded at p=1.
+    leftSv.value = expandLayout.collapsed.x;
+    topSv.value = expandLayout.collapsed.y;
+    widthSv.value = expandLayout.collapsed.width;
+    heightSv.value = expandLayout.collapsed.height;
+    endLeftSv.value = expandLayout.expanded.x;
+    endTopSv.value = expandLayout.expanded.y;
+    endWidthSv.value = expandLayout.expanded.width;
+    endHeightSv.value = expandLayout.expanded.height;
+
     progressSv.value = withTiming(0, { duration, easing: collapseEasing }, (finished) => {
       if (finished) {
         progressSv.value = 0;
@@ -129,7 +174,20 @@ export function useMiniMapAnimation({
         }
       }
     });
-  }, [collapseGeneration, expandLayout, onCollapseAnimationComplete, progressSv]);
+  }, [
+    collapseGeneration,
+    expandLayout,
+    endHeightSv,
+    endLeftSv,
+    endTopSv,
+    endWidthSv,
+    heightSv,
+    leftSv,
+    onCollapseAnimationComplete,
+    progressSv,
+    topSv,
+    widthSv,
+  ]);
 
   const cardStyle = useAnimatedStyle(() => {
     const p = progressSv.value;

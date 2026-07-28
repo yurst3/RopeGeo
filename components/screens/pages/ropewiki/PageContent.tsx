@@ -148,6 +148,8 @@ export function PageContent({
       ? ("authors" in minimapForUi ? minimapForUi.authors : null)
       : null;
   const betaSectionLookup = useMemo(() => data.toBetaSectionLookup(), [data]);
+  const imageLookup = useMemo(() => data.toImageLookup(), [data]);
+  const measurementsLookup = useMemo(() => data.toMeasurementsLookup(), [data]);
   const directionsFromPageCoords =
     data.coordinates != null
       ? { lat: data.coordinates.lat, lon: data.coordinates.lon }
@@ -410,7 +412,7 @@ export function PageContent({
                       ? mapDirections
                       : centeredMiniMapDirections,
                     ...(isPageMiniMapType(minimapForUi.miniMapType)
-                      ? { betaSectionLookup }
+                      ? { betaSectionLookup, imageLookup, measurementsLookup }
                       : {}),
                   } as MiniMapProps)}
                 />

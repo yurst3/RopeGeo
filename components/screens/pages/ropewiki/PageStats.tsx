@@ -1,4 +1,5 @@
 import { useSettings } from "@/context/app/SettingsContext";
+import { PAGE_STAT_LABELS } from "@/constants/pageStats";
 import { StyleSheet } from "react-native";
 import { MinMax } from "ropegeo-common/models";
 import type {
@@ -68,21 +69,37 @@ export function PageStats(props: PageStatsProps) {
   const timeItems: StatItem[] = [];
   const overallTimeStr = formatTime(props.overallTime, timeSystem);
   if (overallTimeStr)
-    timeItems.push({ key: "overallTime", value: overallTimeStr, label: "Overall Est." });
+    timeItems.push({
+      key: "overallTime",
+      value: overallTimeStr,
+      label: PAGE_STAT_LABELS.overallTime,
+    });
   const approachTimeStr = formatTime(props.approachTime, timeSystem);
   if (approachTimeStr)
-    timeItems.push({ key: "approachTime", value: approachTimeStr, label: "Approach Est." });
+    timeItems.push({
+      key: "approachTime",
+      value: approachTimeStr,
+      label: PAGE_STAT_LABELS.approachTime,
+    });
   const descentTimeStr = formatTime(props.descentTime, timeSystem);
   if (descentTimeStr)
-    timeItems.push({ key: "descentTime", value: descentTimeStr, label: "Descent Est." });
+    timeItems.push({
+      key: "descentTime",
+      value: descentTimeStr,
+      label: PAGE_STAT_LABELS.descentTime,
+    });
   const exitTimeStr = formatTime(props.exitTime, timeSystem);
   if (exitTimeStr)
-    timeItems.push({ key: "exitTime", value: exitTimeStr, label: "Exit Est." });
+    timeItems.push({
+      key: "exitTime",
+      value: exitTimeStr,
+      label: PAGE_STAT_LABELS.exitTime,
+    });
   if (hasShuttleTime(props.shuttleTime) && props.shuttleTime != null)
     timeItems.push({
       key: "shuttleTime",
       value: props.shuttleTime.toMeasurementSystem(timeSystem).toString(),
-      label: "Shuttle Est.",
+      label: PAGE_STAT_LABELS.shuttleTime,
     });
 
   const lengthItems: StatItem[] = [];
@@ -90,25 +107,25 @@ export function PageStats(props: PageStatsProps) {
     lengthItems.push({
       key: "overallLength",
       value: formatLength(props.overallLength, lengthSystem),
-      label: "Overall Dist.",
+      label: PAGE_STAT_LABELS.overallLength,
     });
   if (hasLength(props.approachLength))
     lengthItems.push({
       key: "approachLength",
       value: formatLength(props.approachLength, lengthSystem),
-      label: "Approach Dist.",
+      label: PAGE_STAT_LABELS.approachLength,
     });
   if (hasLength(props.descentLength))
     lengthItems.push({
       key: "descentLength",
       value: formatLength(props.descentLength, lengthSystem),
-      label: "Descent Dist.",
+      label: PAGE_STAT_LABELS.descentLength,
     });
   if (hasLength(props.exitLength))
     lengthItems.push({
       key: "exitLength",
       value: formatLength(props.exitLength, lengthSystem),
-      label: "Exit Dist.",
+      label: PAGE_STAT_LABELS.exitLength,
     });
 
   const elevItems: StatItem[] = [];
@@ -116,19 +133,19 @@ export function PageStats(props: PageStatsProps) {
     elevItems.push({
       key: "approachElevGain",
       value: formatLength(props.approachElevGain, lengthSystem),
-      label: "Approach Gain",
+      label: PAGE_STAT_LABELS.approachElevGain,
     });
   if (hasGain(props.descentElevGain))
     elevItems.push({
       key: "descentElevGain",
       value: formatLength(props.descentElevGain, lengthSystem),
-      label: "Descent Gain",
+      label: PAGE_STAT_LABELS.descentElevGain,
     });
   if (hasGain(props.exitElevGain))
     elevItems.push({
       key: "exitElevGain",
       value: formatLength(props.exitElevGain, lengthSystem),
-      label: "Exit Gain",
+      label: PAGE_STAT_LABELS.exitElevGain,
     });
 
   if (timeItems.length === 0 && lengthItems.length === 0 && elevItems.length === 0) {

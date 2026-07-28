@@ -9,7 +9,11 @@ import {
   type RoutesState,
 } from "@/components/screens/explore/RouteMarkersLayer";
 import { TrailsLayer } from "@/components/screens/explore/TrailsLayer";
-import { useHeaderChromeLayout } from "@/utils/layout/buttonChromeLayout";
+import {
+  expandedMiniMapHeaderRowStackTop,
+  useHeaderChromeLayout,
+  useMapButtonChromeLayout,
+} from "@/utils/layout/buttonChromeLayout";
 import {
   routePreviewDockedPaddingBottom,
 } from "@/utils/minimap/fullScreenMapLayout";
@@ -82,6 +86,7 @@ export function RegionMiniMapView({
 }: RegionMiniMapViewProps) {
   const shell = useMiniMapShell();
   const headerChrome = useHeaderChromeLayout();
+  const mapChrome = useMapButtonChromeLayout();
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const apiBounds = regionMiniMap.bounds;
@@ -142,7 +147,7 @@ export function RegionMiniMapView({
     markCameraFittedToBounds,
   } = useMiniMapCamera({ expanded: shell.expanded });
 
-  const applyCollapsedCamera = useCallback(() => {
+  const applyCollapsedCamera = useCallback((_size: { width: number; height: number }) => {
     if (!shell.mountNativeMap || shell.expanded || regionFitBounds == null) return;
     resetPitchAndHeading(COLLAPSED_CAMERA_ANIMATION_MS);
     fitToBounds(regionFitBounds, CAMERA_PADDING, COLLAPSED_CAMERA_ANIMATION_MS);
@@ -292,6 +297,11 @@ export function RegionMiniMapView({
 
   const { insets } = shell;
   const headerTop = insets.top + headerChrome.rowTopInset;
+  const buttonStackTop = expandedMiniMapHeaderRowStackTop(
+    headerTop,
+    headerChrome,
+    mapChrome,
+  );
 
   return (
     <>
@@ -402,7 +412,7 @@ export function RegionMiniMapView({
               }
             }}
           />
-          <ButtonStack top={headerTop}>
+          <ButtonStack top={buttonStackTop}>
             <ButtonStack.Slot id="bounds" visible={boundsResetButtonVisible}>
               <ResetCameraToBoundsButton
                 stacked

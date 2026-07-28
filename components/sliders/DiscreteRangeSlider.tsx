@@ -1,6 +1,21 @@
-import { DEFAULT_BADGE_SIZE } from "@/components/badges/Badge";
 import { ConstantText } from "@/components/text/ConstantText";
-import { ScalingText } from "@/components/text/ScalingText";
+import { DiscreteRangeSliderTickLabels } from "@/components/sliders/DiscreteRangeSliderTickLabels";
+import { DiscreteRangeSliderThumbLabel } from "@/components/sliders/DiscreteRangeSliderThumbLabel";
+import {
+  computeMultiSliderCanvasLayout,
+  mergedThumbLabelBounds,
+  THUMB_HIT,
+  THUMB_PAN_ACTIVE_OFFSET_X,
+  THUMB_PAN_FAIL_OFFSET_Y,
+  THUMB_TITLE_COL_W,
+  THUMB_TITLE_MERGED_W,
+  THUMB_TOP,
+  TICK_RADIUS,
+  TICK_SIZE,
+  TRACK_HEIGHT,
+  thumbCenterX,
+  thumbDisplayCenters,
+} from "@/components/sliders/discreteRangeSliderLayout";
 import { useFilterTheme } from "@/utils/filters/useFilterTheme";
 import { useTextStyle } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
@@ -17,193 +32,13 @@ import {
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
-import type { BadgeThumbProps } from "./acaDifficultyBadgeMaps";
-import { FILTER_SHEET_HORIZONTAL_INSET } from "@/utils/filters/filterSheetInsets";
 
-const THUMB_HIT = 48;
-const TRACK_HEIGHT = 10;
-/** Diameter of each step dot on the track */
-const TICK_SIZE = 10;
-const TICK_RADIUS = TICK_SIZE / 2;
+/** Props passed to badge components used as range-slider thumbs. */
+export type BadgeThumbProps = { showLabel?: boolean };
 
-const THUMB_TOP = 0;
-const TICK_LABEL_SLOT_W = 40;
-const THUMB_TITLE_COL_W = 64;
-const THUMB_TITLE_MERGED_W = 168;
-const THUMB_LABEL_MAX_LINES = 2;
-const TICK_LABEL_MAX_LINES = 1;
-const TEXT_LINE_HEIGHT_FACTOR = 1.2;
-const LABEL_TRACK_OVERLAP = 8;
-const CANVAS_BOTTOM_PAD = 2;
-/** Pull tick labels up into the lower hit-band so they sit closer to the track. */
-const TICK_LABELS_OVERLAP_INTO_HIT = 10;
-/** Thumb titles stay just below scaled badge bottoms (not the full tick row). */
-const THUMB_TITLES_GAP_BELOW_BADGE = 0;
-
-function computeMultiSliderCanvasLayout(
-  multiSliderThumbScale: number,
-  thumbLabelMaxPx: number,
-  tickLabelMaxPx: number,
-  showTickLabels: boolean,
-) {
-  const badgeOverflowBelow = Math.max(
-    0,
-    Math.round((DEFAULT_BADGE_SIZE * multiSliderThumbScale - THUMB_HIT) / 2),
-  );
-  const tickRowH = Math.ceil(
-    tickLabelMaxPx * TICK_LABEL_MAX_LINES * TEXT_LINE_HEIGHT_FACTOR,
-  );
-  const thumbRowH = Math.ceil(
-    thumbLabelMaxPx * THUMB_LABEL_MAX_LINES * TEXT_LINE_HEIGHT_FACTOR,
-  );
-  const thumbTitlesBelowBadge =
-    THUMB_HIT + badgeOverflowBelow + THUMB_TITLES_GAP_BELOW_BADGE;
-  const tickLabelsTop = showTickLabels
-    ? THUMB_HIT - TICK_LABELS_OVERLAP_INTO_HIT
-    : thumbTitlesBelowBadge;
-  const thumbTitlesTop = showTickLabels
-    ? Math.max(
-        tickLabelsTop + tickRowH - LABEL_TRACK_OVERLAP,
-        thumbTitlesBelowBadge,
-      )
-    : thumbTitlesBelowBadge;
-  const canvasHeight = thumbTitlesTop + thumbRowH + CANVAS_BOTTOM_PAD;
-
-  return {
-    canvasHeight,
-    tickLabelsTop,
-    tickRowH,
-    thumbTitlesTop,
-    thumbRowH,
-  };
-}
-
-function TickLabel({
-  children,
-  color,
-}: {
-  children: string;
-  color: string;
-}) {
-  const uiScale = useUiScale();
-  const textStyle = useTextStyle();
-
-  return (
-    <ScalingText
-      size={uiScale.filter.text.multiSliderTickLabel}
-      typography={textStyle.filter.note}
-      numberOfLines={TICK_LABEL_MAX_LINES}
-      ellipsizeMode="tail"
-      measure={{ type: "width", widthSafetyMargin: 2 }}
-      containerStyle={styles.tickLabelMeasureWrap}
-      style={[styles.tickLabelText, { color }]}
-    >
-      {children}
-    </ScalingText>
-  );
-}
-
-function ThumbLabel({
-  children,
-  width,
-  height,
-  color,
-}: {
-  children: string;
-  width: number;
-  height: number;
-  color: string;
-}) {
-  const uiScale = useUiScale();
-  const textStyle = useTextStyle();
-
-  return (
-    <ScalingText
-      size={uiScale.filter.text.multiSliderThumbLabel}
-      typography={textStyle.filter.sectionTitle}
-      numberOfLines={THUMB_LABEL_MAX_LINES}
-      ellipsizeMode="tail"
-      measure={{ type: "lineCount", maxLinesAtMaxSize: THUMB_LABEL_MAX_LINES }}
-      containerStyle={{ width, height }}
-      style={[styles.thumbTitleText, { color }]}
-    >
-      {children}
-    </ScalingText>
-  );
-}
-
-/**
- * Pan must move this many px horizontally before the thumb gesture activates,
- * so slight vertical motion doesn’t hand off to the parent ScrollView first.
- */
-const THUMB_PAN_ACTIVE_OFFSET_X = 10;
-/**
- * Allow this much vertical wander (px) before the pan fails; larger = more
- * forgiving diagonal drags, but very vertical scrolls may feel stickier first.
- */
-const THUMB_PAN_FAIL_OFFSET_Y = 40;
-
-function thumbCenterX(index: number, trackWidth: number, n: number): number {
-  if (n <= 1) return trackWidth / 2;
-  const inner = Math.max(0, trackWidth - THUMB_HIT);
-  return THUMB_HIT / 2 + (index / (n - 1)) * inner;
-}
-
-/** Gap between 48px hit boxes when min === max so both thumbs stay grabbable. */
-const THUMB_GAP_WHEN_COLLAPSED = 24;
-
-/**
- * When low and high share the same discrete index, nudge centers apart (with edge clamp)
- * so PanResponder hit areas do not stack.
- */
-function thumbDisplayCenters(
-  lowIdx: number,
-  highIdx: number,
-  trackWidth: number,
-  n: number,
-): { xLow: number; xHigh: number } {
-  const baseLow = thumbCenterX(lowIdx, trackWidth, n);
-  const baseHigh = thumbCenterX(highIdx, trackWidth, n);
-  if (lowIdx !== highIdx) {
-    return { xLow: baseLow, xHigh: baseHigh };
-  }
-  const halfSep = (THUMB_HIT + THUMB_GAP_WHEN_COLLAPSED) / 4;
-  let xLow = baseLow - halfSep;
-  let xHigh = baseHigh + halfSep;
-  const minC = THUMB_HIT / 2;
-  const maxC = trackWidth - THUMB_HIT / 2;
-  if (xLow < minC) {
-    const shift = minC - xLow;
-    xLow = minC;
-    xHigh = Math.min(maxC, xHigh + shift);
-  }
-  if (xHigh > maxC) {
-    const shift = xHigh - maxC;
-    xHigh = maxC;
-    xLow = Math.max(minC, xLow - shift);
-  }
-  return { xLow, xHigh };
-}
-
-function mergedThumbLabelBounds(
-  centerX: number,
-  trackWidth: number,
-  maxW: number = THUMB_TITLE_MERGED_W,
-  horizontalBleed: number = FILTER_SHEET_HORIZONTAL_INSET,
-): { left: number; width: number } {
-  const halfAvailable = Math.min(
-    centerX + horizontalBleed,
-    trackWidth - centerX + horizontalBleed,
-  );
-  const width = Math.min(maxW, Math.max(0, halfAvailable * 2));
-  return {
-    left: centerX - width / 2,
-    width,
-  };
-}
-
-export type AcaDiscreteRangeSliderProps<T extends string> = {
-  label: string;
+export type DiscreteRangeSliderProps<T extends string> = {
+  /** When omitted or empty, the section title above the track is not rendered. */
+  label?: string;
   orderedValues: readonly T[];
   min: T;
   max: T;
@@ -216,9 +51,10 @@ export type AcaDiscreteRangeSliderProps<T extends string> = {
 };
 
 /**
- * Two-thumb discrete range: each stop shows the ACA badge for that rating value.
+ * Two-thumb discrete range slider: each stop can show a badge thumb for that value.
+ * Used by filter sheets (e.g. ACA ratings) and settings (e.g. relevance strength).
  */
-export function AcaDiscreteRangeSlider<T extends string>({
+export function DiscreteRangeSlider<T extends string>({
   label,
   orderedValues,
   min,
@@ -227,7 +63,7 @@ export function AcaDiscreteRangeSlider<T extends string>({
   onChange,
   thumbTitles,
   formatTickLabel = (v: T) => String(v),
-}: AcaDiscreteRangeSliderProps<T>) {
+}: DiscreteRangeSliderProps<T>) {
   const { filter, sectionLabel, text } = useFilterTheme();
   const uiScale = useUiScale();
   const textStyle = useTextStyle();
@@ -303,7 +139,7 @@ export function AcaDiscreteRangeSlider<T extends string>({
     (translationX: number) => {
       const w = trackWRef.current;
       if (w <= 0 || n <= 1) return;
-      const step = (Math.max(0, w - THUMB_HIT)) / (n - 1);
+      const step = Math.max(0, w - THUMB_HIT) / (n - 1);
       if (step <= 0) return;
       const delta = Math.round(translationX / step);
       const next = clampLow(startLowIdx.current + delta);
@@ -323,7 +159,7 @@ export function AcaDiscreteRangeSlider<T extends string>({
     (translationX: number) => {
       const w = trackWRef.current;
       if (w <= 0 || n <= 1) return;
-      const step = (Math.max(0, w - THUMB_HIT)) / (n - 1);
+      const step = Math.max(0, w - THUMB_HIT) / (n - 1);
       if (step <= 0) return;
       const delta = Math.round(translationX / step);
       const next = clampHigh(startHighIdx.current + delta);
@@ -397,6 +233,14 @@ export function AcaDiscreteRangeSlider<T extends string>({
       ? mergedThumbLabelBounds((xLow + xHigh) / 2, tw)
       : { left: 0, width: THUMB_TITLE_MERGED_W };
   const showTickLabelsBand = n > 2;
+  const tickLabels = useMemo(
+    () => orderedValues.map((value) => formatTickLabel(value)),
+    [orderedValues, formatTickLabel],
+  );
+  const coveredTickIndices = useMemo(
+    () => new Set<number>([lowIdx, highIdx]),
+    [lowIdx, highIdx],
+  );
   const canvasLayout = useMemo(
     () =>
       computeMultiSliderCanvasLayout(
@@ -415,13 +259,15 @@ export function AcaDiscreteRangeSlider<T extends string>({
 
   return (
     <View style={styles.block}>
-      <ConstantText
-        size={uiScale.filter.text.sectionTitle}
-        typography={textStyle.filter.sectionTitle}
-        style={[styles.label, sectionLabel]}
-      >
-        {label}
-      </ConstantText>
+      {label != null && label !== "" ? (
+        <ConstantText
+          size={uiScale.filter.text.sectionTitle}
+          typography={textStyle.filter.sectionTitle}
+          style={[styles.label, sectionLabel]}
+        >
+          {label}
+        </ConstantText>
+      ) : null}
       <View
         style={[styles.sliderCanvas, { height: canvasLayout.canvasHeight }]}
         onLayout={onTrackLayout}
@@ -431,84 +277,84 @@ export function AcaDiscreteRangeSlider<T extends string>({
             <View
               style={[styles.trackBg, { backgroundColor: badgeSlider.unfilledBar }]}
             />
-          {trackW > 0 && n > 0 ? (
-            <View
-              style={[
-                styles.trackFill,
-                {
-                  left: fillLeft,
-                  width: Math.max(fillWidth, TRACK_HEIGHT),
-                  backgroundColor: badgeSlider.filledBar,
-                },
-              ]}
-            />
-          ) : null}
-          {trackW > 0 && n > 0 ? (
-            <View style={styles.tickLayer} pointerEvents="none">
-              {Array.from({ length: n }, (_, i) => {
-                const cx = thumbCenterX(i, tw, n);
-                return (
-                  <View
-                    key={i}
-                    style={[
-                      styles.tick,
-                      {
-                        left: cx - TICK_RADIUS,
-                        backgroundColor: badgeSlider.tick,
-                      },
-                    ]}
-                  />
-                );
-              })}
-            </View>
-          ) : null}
-        </View>
-        {trackW > 0 && LowBadge != null ? (
-          <GestureDetector gesture={panLowGesture}>
-            <View
-              style={[
-                styles.thumbWrap,
-                {
-                  left: xLow - THUMB_HIT / 2,
-                  top: THUMB_TOP,
-                  zIndex: 2,
-                },
-              ]}
-            >
+            {trackW > 0 && n > 0 ? (
               <View
                 style={[
-                  styles.thumbScale,
-                  { transform: [{ scale: multiSliderThumbScale }] },
+                  styles.trackFill,
+                  {
+                    left: fillLeft,
+                    width: Math.max(fillWidth, TRACK_HEIGHT),
+                    backgroundColor: badgeSlider.filledBar,
+                  },
                 ]}
-              >
-                {React.createElement(LowBadge, {})}
+              />
+            ) : null}
+            {trackW > 0 && n > 0 ? (
+              <View style={styles.tickLayer} pointerEvents="none">
+                {Array.from({ length: n }, (_, i) => {
+                  const cx = thumbCenterX(i, tw, n);
+                  return (
+                    <View
+                      key={i}
+                      style={[
+                        styles.tick,
+                        {
+                          left: cx - TICK_RADIUS,
+                          backgroundColor: badgeSlider.tick,
+                        },
+                      ]}
+                    />
+                  );
+                })}
               </View>
-            </View>
-          </GestureDetector>
-        ) : null}
-        {trackW > 0 && HighBadge != null ? (
-          <GestureDetector gesture={panHighGesture}>
-            <View
-              style={[
-                styles.thumbWrap,
-                {
-                  left: xHigh - THUMB_HIT / 2,
-                  top: THUMB_TOP,
-                  zIndex: 2,
-                },
-              ]}
-            >
+            ) : null}
+          </View>
+          {trackW > 0 && LowBadge != null ? (
+            <GestureDetector gesture={panLowGesture}>
               <View
                 style={[
-                  styles.thumbScale,
-                  { transform: [{ scale: multiSliderThumbScale }] },
+                  styles.thumbWrap,
+                  {
+                    left: xLow - THUMB_HIT / 2,
+                    top: THUMB_TOP,
+                    zIndex: 2,
+                  },
                 ]}
               >
-                {React.createElement(HighBadge, {})}
+                <View
+                  style={[
+                    styles.thumbScale,
+                    { transform: [{ scale: multiSliderThumbScale }] },
+                  ]}
+                >
+                  {React.createElement(LowBadge, {})}
+                </View>
               </View>
-            </View>
-          </GestureDetector>
-        ) : null}
+            </GestureDetector>
+          ) : null}
+          {trackW > 0 && HighBadge != null ? (
+            <GestureDetector gesture={panHighGesture}>
+              <View
+                style={[
+                  styles.thumbWrap,
+                  {
+                    left: xHigh - THUMB_HIT / 2,
+                    top: THUMB_TOP,
+                    zIndex: 2,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.thumbScale,
+                    { transform: [{ scale: multiSliderThumbScale }] },
+                  ]}
+                >
+                  {React.createElement(HighBadge, {})}
+                </View>
+              </View>
+            </GestureDetector>
+          ) : null}
         </View>
 
         {showTickLabelsBand ? (
@@ -522,31 +368,15 @@ export function AcaDiscreteRangeSlider<T extends string>({
             ]}
             pointerEvents="none"
           >
-            {trackW > 0
-              ? Array.from({ length: n }, (_, i) => {
-                  const v = orderedValues[i];
-                  if (v === undefined) return null;
-                  const coveredByThumb = i === lowIdx || i === highIdx;
-                  const cx = thumbCenterX(i, tw, n);
-                  return (
-                    <View
-                      key={`tick-lbl-${String(v)}`}
-                      style={[
-                        styles.tickLabelSlot,
-                        {
-                          left: cx - TICK_LABEL_SLOT_W / 2,
-                          height: canvasLayout.tickRowH,
-                          opacity: coveredByThumb ? 0 : 1,
-                        },
-                      ]}
-                    >
-                      <TickLabel color={text.tertiary}>
-                        {formatTickLabel(v)}
-                      </TickLabel>
-                    </View>
-                  );
-                })
-              : null}
+            {trackW > 0 ? (
+              <DiscreteRangeSliderTickLabels
+                labels={tickLabels}
+                trackWidth={trackW}
+                coveredIndices={coveredTickIndices}
+                color={text.tertiary}
+                height={canvasLayout.tickRowH}
+              />
+            ) : null}
           </View>
         ) : null}
 
@@ -571,13 +401,13 @@ export function AcaDiscreteRangeSlider<T extends string>({
                 },
               ]}
             >
-              <ThumbLabel
+              <DiscreteRangeSliderThumbLabel
                 width={mergedThumbBounds.width}
                 height={canvasLayout.thumbRowH}
                 color={text.secondary}
               >
                 {mergedTitle}
-              </ThumbLabel>
+              </DiscreteRangeSliderThumbLabel>
             </View>
           ) : null}
           {trackW > 0 && !sameThumbValue && lowVal != null ? (
@@ -590,13 +420,13 @@ export function AcaDiscreteRangeSlider<T extends string>({
                 },
               ]}
             >
-              <ThumbLabel
+              <DiscreteRangeSliderThumbLabel
                 width={THUMB_TITLE_COL_W}
                 height={canvasLayout.thumbRowH}
                 color={text.secondary}
               >
                 {lowTitle}
-              </ThumbLabel>
+              </DiscreteRangeSliderThumbLabel>
             </View>
           ) : null}
           {trackW > 0 && !sameThumbValue && highVal != null ? (
@@ -609,13 +439,13 @@ export function AcaDiscreteRangeSlider<T extends string>({
                 },
               ]}
             >
-              <ThumbLabel
+              <DiscreteRangeSliderThumbLabel
                 width={THUMB_TITLE_COL_W}
                 height={canvasLayout.thumbRowH}
                 color={text.secondary}
               >
                 {highTitle}
-              </ThumbLabel>
+              </DiscreteRangeSliderThumbLabel>
             </View>
           ) : null}
         </View>
@@ -684,19 +514,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1,
   },
-  tickLabelMeasureWrap: {
-    width: TICK_LABEL_SLOT_W,
-    alignItems: "center",
-  },
-  tickLabelSlot: {
-    position: "absolute",
-    top: 0,
-    width: TICK_LABEL_SLOT_W,
-    alignItems: "center",
-  },
-  tickLabelText: {
-    textAlign: "center",
-  },
   thumbTitlesLayer: {
     position: "absolute",
     left: 0,
@@ -713,8 +530,5 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     alignItems: "center",
-  },
-  thumbTitleText: {
-    textAlign: "center",
   },
 });

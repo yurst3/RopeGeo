@@ -22,6 +22,7 @@ export default function SavedStackLayout() {
       <Stack.Screen name="permit-info" options={{ headerShown: false }} />
       <Stack.Screen name="shuttle-info" options={{ headerShown: false }} />
       <Stack.Screen name="vehicle-info" options={{ headerShown: false }} />
+      <Stack.Screen name="relevance-info" options={{ headerShown: false }} />
       <Stack.Screen
         name="[id]/page"
         options={{

@@ -1,4 +1,4 @@
-import { useMapButtonChromeLayout } from "@/utils/layout/buttonChromeLayout";
+import { useHeaderChromeLayout, useMapButtonChromeLayout } from "@/utils/layout/buttonChromeLayout";
 import {
   Children,
   isValidElement,
@@ -118,7 +118,7 @@ function ButtonStackSlotRow({
 type ButtonStackBaseProps = {
   /** Distance from the top of the screen to the top of the first slot. */
   top: number;
-  /** Distance from the right edge of the screen. Default 16. */
+  /** Distance from the right edge of the screen. Defaults to scaled header edge inset. */
   right?: number;
   /** Vertical gap between slots. */
   gap?: number;
@@ -127,17 +127,22 @@ type ButtonStackBaseProps = {
 
 function ButtonStackBase({
   top,
-  right = 16,
+  right,
   gap: gapProp,
   children,
 }: ButtonStackBaseProps) {
   const mapChrome = useMapButtonChromeLayout();
+  const headerChrome = useHeaderChromeLayout();
   const gap = gapProp ?? mapChrome.gap;
+  const resolvedRight = right ?? headerChrome.edgeInset;
   const slots = Children.toArray(children).filter(isButtonStackSlot);
 
   return (
     <View
-      style={[styles.host, { top, right, gap, minWidth: mapChrome.stackMinWidth }]}
+      style={[
+        styles.host,
+        { top, right: resolvedRight, gap, minWidth: mapChrome.stackMinWidth },
+      ]}
       pointerEvents="box-none"
     >
       {slots.map((el) => (

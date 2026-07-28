@@ -2,7 +2,12 @@ import type { FontProfileKey } from "@/constants/text/font/types";
 import type { UiScaleProfileKey } from "@/constants/uiScale/types";
 import type {
   LengthMeasurementSystem,
+  RelevanceStrength,
   TimeMeasurementSystem,
+} from "ropegeo-common/models";
+import {
+  isRelevanceStrength,
+  RELEVANCE_STRENGTHS,
 } from "ropegeo-common/models";
 import {
   LENGTH_MEASUREMENT_SYSTEMS,
@@ -14,12 +19,25 @@ import {
   type UnitsPreference,
 } from "./types";
 
+export type ShowRelevantContextStrengths = {
+  min: RelevanceStrength;
+  max: RelevanceStrength;
+};
+
+const DEFAULT_SHOW_RELEVANT_CONTEXT = true;
+const DEFAULT_SHOW_RELEVANT_CONTEXT_STRENGTHS: ShowRelevantContextStrengths = {
+  min: "Maybe Relevant",
+  max: "Definitely Relevant",
+};
+
 export class Settings {
   theme: ThemePreference;
   font: FontProfileKey;
   uiScale: UiScaleProfileKey;
   lengthMeasurementSystem: LengthMeasurementSystem;
   timeMeasurementSystem: TimeMeasurementSystem;
+  showRelevantContext: boolean;
+  showRelevantContextStrengths: ShowRelevantContextStrengths;
 
   constructor(
     theme: ThemePreference = "Auto",
@@ -27,12 +45,18 @@ export class Settings {
     uiScale: UiScaleProfileKey = "Auto",
     lengthMeasurementSystem: LengthMeasurementSystem = "Imperial",
     timeMeasurementSystem: TimeMeasurementSystem = "Standard",
+    showRelevantContext: boolean = DEFAULT_SHOW_RELEVANT_CONTEXT,
+    showRelevantContextStrengths: ShowRelevantContextStrengths = {
+      ...DEFAULT_SHOW_RELEVANT_CONTEXT_STRENGTHS,
+    },
   ) {
     this.theme = theme;
     this.font = font;
     this.uiScale = uiScale;
     this.lengthMeasurementSystem = lengthMeasurementSystem;
     this.timeMeasurementSystem = timeMeasurementSystem;
+    this.showRelevantContext = showRelevantContext;
+    this.showRelevantContextStrengths = showRelevantContextStrengths;
   }
 
   setTheme(v: ThemePreference): void {
@@ -56,6 +80,17 @@ export class Settings {
     this.timeMeasurementSystem = units === "Freedom" ? "Freedom" : "Standard";
   }
 
+  setShowRelevantContext(v: boolean): void {
+    this.showRelevantContext = v;
+  }
+
+  setShowRelevantContextStrengths(
+    min: RelevanceStrength,
+    max: RelevanceStrength,
+  ): void {
+    this.showRelevantContextStrengths = Settings.assertStrengthRange(min, max);
+  }
+
   toJSON(): Record<string, unknown> {
     return {
       theme: this.theme,
@@ -63,6 +98,8 @@ export class Settings {
       uiScale: this.uiScale,
       lengthMeasurementSystem: this.lengthMeasurementSystem,
       timeMeasurementSystem: this.timeMeasurementSystem,
+      showRelevantContext: this.showRelevantContext,
+      showRelevantContextStrengths: this.showRelevantContextStrengths,
     };
   }
 
@@ -93,6 +130,8 @@ export class Settings {
       Settings.parseUiScale(o.uiScale),
       Settings.parseLengthMeasurementSystem(o.lengthMeasurementSystem),
       Settings.parseTimeMeasurementSystem(o.timeMeasurementSystem),
+      Settings.parseShowRelevantContext(o.showRelevantContext),
+      Settings.parseShowRelevantContextStrengths(o.showRelevantContextStrengths),
     );
   }
 
@@ -136,5 +175,45 @@ export class Settings {
       return v as TimeMeasurementSystem;
     }
     throw new Error(`Invalid Settings.timeMeasurementSystem: ${JSON.stringify(v)}`);
+  }
+
+  private static parseShowRelevantContext(v: unknown): boolean {
+    if (v === undefined) return DEFAULT_SHOW_RELEVANT_CONTEXT;
+    if (typeof v === "boolean") return v;
+    throw new Error(`Invalid Settings.showRelevantContext: ${JSON.stringify(v)}`);
+  }
+
+  private static parseShowRelevantContextStrengths(
+    v: unknown,
+  ): ShowRelevantContextStrengths {
+    if (v === undefined) {
+      return { ...DEFAULT_SHOW_RELEVANT_CONTEXT_STRENGTHS };
+    }
+    if (v == null || typeof v !== "object") {
+      throw new Error(
+        `Invalid Settings.showRelevantContextStrengths: ${JSON.stringify(v)}`,
+      );
+    }
+    const o = v as Record<string, unknown>;
+    if (!isRelevanceStrength(o.min) || !isRelevanceStrength(o.max)) {
+      throw new Error(
+        `Invalid Settings.showRelevantContextStrengths: ${JSON.stringify(v)}`,
+      );
+    }
+    return Settings.assertStrengthRange(o.min, o.max);
+  }
+
+  private static assertStrengthRange(
+    min: RelevanceStrength,
+    max: RelevanceStrength,
+  ): ShowRelevantContextStrengths {
+    const minIndex = RELEVANCE_STRENGTHS.indexOf(min);
+    const maxIndex = RELEVANCE_STRENGTHS.indexOf(max);
+    if (minIndex < 0 || maxIndex < 0 || minIndex > maxIndex) {
+      throw new Error(
+        `Invalid relevance strength range: min=${JSON.stringify(min)}, max=${JSON.stringify(max)}`,
+      );
+    }
+    return { min, max };
   }
 }

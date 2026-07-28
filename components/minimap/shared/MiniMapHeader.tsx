@@ -64,9 +64,18 @@ export function MiniMapHeader({
       {
         backgroundColor: minimap.title.background,
         shadowColor: minimap.title.shadow,
+        minHeight: headerChrome.buttonWrapHeight,
+        paddingVertical: headerChrome.titleBarPaddingVertical,
+        paddingHorizontal: headerChrome.titleBarPaddingHorizontal,
       },
     ],
-    [minimap.title.background, minimap.title.shadow],
+    [
+      minimap.title.background,
+      minimap.title.shadow,
+      headerChrome.buttonWrapHeight,
+      headerChrome.titleBarPaddingVertical,
+      headerChrome.titleBarPaddingHorizontal,
+    ],
   );
 
   const titleTextStyle = useMemo(
@@ -76,7 +85,14 @@ export function MiniMapHeader({
 
   return (
     <View
-      style={[styles.headerRow, { top }]}
+      style={[
+        styles.headerRow,
+        {
+          top,
+          left: headerChrome.edgeInset,
+          right: headerChrome.edgeInset,
+        },
+      ]}
       pointerEvents="box-none"
       onLayout={
         onHeaderHeightChange != null
@@ -116,11 +132,11 @@ export function MiniMapHeader({
 const styles = StyleSheet.create({
   headerRow: {
     position: "absolute",
-    left: 16,
-    right: 16,
     zIndex: 3900,
     flexDirection: "row",
-    alignItems: "center",
+    // Top-align side slots with the title pill so a taller title (UI scale / a11y)
+    // does not vertically recenter the back button away from the map ButtonStack.
+    alignItems: "flex-start",
   },
   headerButtonWrap: {
     justifyContent: "center",
@@ -138,8 +154,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
     marginHorizontal: 4,
     borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
     justifyContent: "center",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,

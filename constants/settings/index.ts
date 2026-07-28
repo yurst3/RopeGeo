@@ -10,7 +10,7 @@ export {
   THEME_PREFERENCES,
   UNITS_PREFERENCES,
 } from "./types";
-export { Settings } from "./settings";
+export { Settings, type ShowRelevantContextStrengths } from "./settings";
 export {
   UI_SCALE_OPTION_PREVIEW,
   type UiScaleOptionPreview,

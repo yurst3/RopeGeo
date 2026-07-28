@@ -4,6 +4,7 @@ import type { BadgeColors } from "../../types";
 
 import { acaDifficultyBadges } from "./acaDifficultyBadges";
 import { permitBadges } from "./permitBadges";
+import { relevanceStrengthBadges } from "./relevanceStrengthBadges";
 import { routeTypeBadges } from "./routeTypeBadges";
 import { shuttleBadges } from "./shuttleBadges";
 import { vehicleBadges } from "./vehicleBadges";
@@ -16,6 +17,7 @@ export const lightThemeBadges: BadgeColors = {
   permit: permitBadges,
   shuttle: shuttleBadges,
   vehicle: vehicleBadges,
+  relevanceStrength: relevanceStrengthBadges,
   unknown: {
     background: "#d1d5db",
     icon: "#000000",
