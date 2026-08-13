@@ -3,6 +3,7 @@ import {
   ROUTE_PREVIEW_CARD_BORDER_RADIUS,
   ROUTE_PREVIEW_CARD_MARGIN_H,
   ROUTE_PREVIEW_CARD_PADDING,
+  ROUTE_PREVIEW_SLIDE_MARGIN_RIGHT,
   useRoutePreviewMetrics,
 } from "@/utils/layout/routePreviewLayout";
 import { SavedPageGlyph } from "@/components/buttons/standard/SavedPageGlyph";
@@ -42,6 +43,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { ExternalLinkButton } from "@/components/buttons/standard/ExternalLinkButton";
 import { StarRating } from "@/components/starRating/StarRating";
+import { ConstantText } from "@/components/text/ConstantText";
 import {
   AcaDifficultyRating,
   type OnlinePagePreview,
@@ -52,6 +54,7 @@ import { BadgeRow } from "./BadgeRow";
 import { RoutePreviewAka, RoutePreviewLocation, RoutePreviewTitle } from "./RoutePreviewText";
 import { useColorTheme } from "@/context/theme/ColorThemeContext";
 import { useTextStyle } from "@/context/typography/TextContext";
+import { useUiScale } from "@/context/typography/UIScaleContext";
 import { useRoutePreviewFloaterLayout } from "@/utils/layout/buttonChromeLayout";
 import { RoutePreviewPlaceholder } from "./RoutePreviewPlaceholder";
 
@@ -96,10 +99,13 @@ function SinglePreviewCard({
   preview,
   routeType = null,
   onPress,
+  fillCarouselHeight = false,
 }: {
   preview: PreviewCardData;
   routeType?: RouteType | null;
   onPress?: (preview: PreviewCardData) => void;
+  /** Stretch to the carousel row height (tallest sibling) via flex. */
+  fillCarouselHeight?: boolean;
 }) {
   const themeColors = useColorTheme();
   const textStyle = useTextStyle();
@@ -129,9 +135,15 @@ function SinglePreviewCard({
             width: metrics.cardWidth,
             backgroundColor: background,
           },
+          fillCarouselHeight ? styles.cardFillCarousel : null,
         ]}
       >
-        <View style={styles.cardContent}>
+        <View
+          style={[
+            styles.cardContent,
+            fillCarouselHeight ? styles.cardContentFill : null,
+          ]}
+        >
           <View
             style={[
               styles.imageContainer,
@@ -221,7 +233,13 @@ function SinglePreviewCard({
 
   if (onPress != null) {
     return (
-      <Pressable onPress={() => onPress(preview)} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
+      <Pressable
+        onPress={() => onPress(preview)}
+        style={({ pressed }) => [
+          { opacity: pressed ? 0.9 : 1 },
+          fillCarouselHeight ? styles.cardFillCarousel : null,
+        ]}
+      >
         {cardContent}
       </Pressable>
     );
@@ -281,14 +299,19 @@ function RoutePreviewDataView({
   onCurrentPreviewChange?: (preview: PreviewCardData | null) => void;
 }) {
   const themeColors = useColorTheme();
+  const uiScale = useUiScale();
+  const textStyle = useTextStyle();
   const metrics = useRoutePreviewMetrics();
   const floaterLayout = useRoutePreviewFloaterLayout();
   const scrollRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const { isSaved } = useSavedPages();
 
+  const slideItemLength = metrics.cardWidth + ROUTE_PREVIEW_SLIDE_MARGIN_RIGHT;
+
   useEffect(() => {
     setCurrentIndex(0);
+    scrollRef.current?.scrollTo({ x: 0, animated: false });
   }, [data]);
 
   const currentPreview =
@@ -361,48 +384,63 @@ function RoutePreviewDataView({
           />
         </View>
       ) : (
-        <View style={styles.outer}>
+        <View style={styles.outerCarousel}>
           <ScrollView
             ref={scrollRef}
             horizontal
-            pagingEnabled
             showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            snapToInterval={slideItemLength}
+            snapToAlignment="start"
+            disableIntervalMomentum
             onMomentumScrollEnd={(e) => {
               const i = Math.round(
-                e.nativeEvent.contentOffset.x / metrics.cardWidth,
+                e.nativeEvent.contentOffset.x / slideItemLength,
               );
-              setCurrentIndex(Math.min(i, data.length - 1));
+              setCurrentIndex(
+                Math.max(0, Math.min(i, data.length - 1)),
+              );
             }}
             contentContainerStyle={styles.scrollContent}
           >
             {data.map((preview) => (
               <View
                 key={preview.id}
-                style={[styles.page, { width: metrics.cardWidth }]}
+                style={[
+                  styles.carouselSlide,
+                  {
+                    width: metrics.cardWidth,
+                    marginRight: ROUTE_PREVIEW_SLIDE_MARGIN_RIGHT,
+                  },
+                ]}
               >
                 <SinglePreviewCard
                   preview={preview}
                   routeType={routeType}
                   onPress={onPreviewPress ?? undefined}
+                  fillCarouselHeight
                 />
               </View>
             ))}
           </ScrollView>
-          <View style={styles.dots}>
-            {data.map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  {
-                    backgroundColor:
-                      i === currentIndex
-                        ? themeColors.text.primary
-                        : themeColors.placeholder,
-                  },
-                ]}
-              />
-            ))}
+          <View
+            style={styles.pageIndex}
+            pointerEvents="none"
+            accessibilityLabel={`Page ${currentIndex + 1} of ${data.length}`}
+          >
+            <ConstantText
+              size={uiScale.pageScreen.text.metaData}
+              typography={textStyle.pageScreen.metaData}
+              style={[
+                styles.pageIndexText,
+                {
+                  color: themeColors.image.text,
+                  backgroundColor: themeColors.image.textBackground,
+                },
+              ]}
+            >
+              {`(${currentIndex + 1}/${data.length})`}
+            </ConstantText>
           </View>
         </View>
       )}
@@ -670,18 +708,30 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   outer: {
+    position: "relative",
     paddingHorizontal: ROUTE_PREVIEW_CARD_MARGIN_H,
     marginBottom: 8,
   },
-  scrollContent: {
-    paddingRight: 0,
+  /** Full-bleed carousel; side inset comes from scroll content padding. */
+  outerCarousel: {
+    position: "relative",
+    marginBottom: 8,
   },
-  page: {
-    marginRight: 0,
+  scrollContent: {
+    paddingHorizontal: ROUTE_PREVIEW_CARD_MARGIN_H,
+    // Stretch every slide to the tallest card's height (no onLayout measuring).
+    alignItems: "stretch",
+  },
+  carouselSlide: {
+    alignSelf: "stretch",
   },
   card: {
     borderRadius: ROUTE_PREVIEW_CARD_BORDER_RADIUS,
     overflow: "hidden",
+  },
+  cardFillCarousel: {
+    flex: 1,
+    alignSelf: "stretch",
   },
   imageLoadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -691,6 +741,9 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     flexDirection: "row",
+  },
+  cardContentFill: {
+    flex: 1,
   },
   imageContainer: {
     alignSelf: "stretch",
@@ -725,16 +778,19 @@ const styles = StyleSheet.create({
   starRatingText: {
     marginLeft: 6,
   },
-  dots: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
+  // Drawn below the card without affecting docked card Y (uses bottom padding gap).
+  pageIndex: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: "100%",
     marginTop: 8,
-    gap: 6,
+    alignItems: "center",
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  pageIndexText: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: "hidden",
   },
 });

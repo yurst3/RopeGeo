@@ -14,6 +14,14 @@ import {
 export const ROUTE_PREVIEW_CARD_MARGIN_H = 16;
 export const ROUTE_PREVIEW_CARD_PADDING = 12;
 export const ROUTE_PREVIEW_CARD_BORDER_RADIUS = 12;
+/** How much of the next/previous preview card is visible beside the active slide. */
+export const ROUTE_PREVIEW_SLIDE_PEEK = 8;
+/**
+ * Trailing margin between carousel slides. Combined with side inset
+ * {@link ROUTE_PREVIEW_CARD_MARGIN_H}, leaves {@link ROUTE_PREVIEW_SLIDE_PEEK} of the neighbor visible.
+ */
+export const ROUTE_PREVIEW_SLIDE_MARGIN_RIGHT =
+  ROUTE_PREVIEW_CARD_MARGIN_H - ROUTE_PREVIEW_SLIDE_PEEK;
 export const ROUTE_PREVIEW_IMAGE_WIDTH_RATIO = 0.35;
 export const ROUTE_PREVIEW_MAX_BADGES = 5;
 export const ROUTE_PREVIEW_BADGE_GAP = 8;

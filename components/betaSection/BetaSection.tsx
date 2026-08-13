@@ -6,6 +6,8 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import { FontAwesome5 } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import RenderHtml from "react-native-render-html";
 import Animated, {
   Easing,
@@ -23,6 +25,7 @@ import { ROPEWIKI_ORIGIN } from "@/constants/ropewikiOrigin";
 import { useColorTheme } from "@/context/theme/ColorThemeContext";
 import { useTextStyle, useText } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
+import { colorWithAlpha } from "@/utils/color/colorWithAlpha";
 import { useFabulousTitle } from "@/utils/theme/useFabulousTitle";
 import { replaceEmbeddedImgTagsWithLinks } from "@/utils/ropewiki/replaceEmbeddedImgTagsWithLinks";
 import {
@@ -35,6 +38,7 @@ import {
 } from "@/utils/ropewiki/ropewikiRenderHtml";
 import {
   useResolvedConstantSize,
+  useResolvedIconSizeScale,
   useResolvedTypography,
 } from "@/utils/theme/resolvers";
 import { BetaSectionImages } from "./BetaSectionImages";
@@ -44,6 +48,10 @@ const CARD_PADDING_HORIZONTAL = 20;
 const CONTENT_WIDTH = SCREEN_WIDTH - CARD_PADDING_HORIZONTAL * 2;
 const TEXT_MAX_HEIGHT = 150;
 const EXPAND_COLLAPSE_MS = 280;
+/** Bottom fade height when collapsed; softens the hard clip above "Show more". */
+const COLLAPSE_FADE_HEIGHT = 48;
+/** Matches MapLegendPanel chevron base size. */
+const SHOW_MORE_CHEVRON_SIZE = 14;
 
 type HtmlSource = { html: string; baseUrl: string };
 
@@ -53,6 +61,8 @@ function CollapsibleHtmlBlock({ htmlSource }: { htmlSource: HtmlSource }) {
   const uiScale = useUiScale();
   const textStyle = useTextStyle();
   const { font } = useText();
+  const iconScale = useResolvedIconSizeScale();
+  const chevronSize = Math.round(SHOW_MORE_CHEVRON_SIZE * iconScale);
   const bodyFontSize = useResolvedConstantSize(uiScale.betaSection.text.body);
   const bodyTypography = useResolvedTypography(textStyle.betaSection.body);
   const captionFontSize = useResolvedConstantSize(uiScale.betaSection.text.caption);
@@ -104,6 +114,15 @@ function CollapsibleHtmlBlock({ htmlSource }: { htmlSource: HtmlSource }) {
   }));
 
   const showExpandButton = fullContentHeight >= TEXT_MAX_HEIGHT;
+  const showCollapseFade = showExpandButton && !textExpanded;
+  // Same RGB at alpha 0 — "transparent" is black@0 and greys out light backgrounds.
+  const collapseFadeColors = useMemo(
+    (): [string, string] => [
+      colorWithAlpha(themeColors.background, 0),
+      themeColors.background,
+    ],
+    [themeColors.background],
+  );
 
   return (
     <View style={styles.textBlock}>
@@ -134,6 +153,15 @@ function CollapsibleHtmlBlock({ htmlSource }: { htmlSource: HtmlSource }) {
             defaultTextProps={ROPEWIKI_HTML_DEFAULT_TEXT_PROPS}
           />
         </ScrollView>
+        {showCollapseFade ? (
+          <LinearGradient
+            colors={collapseFadeColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.collapseFade}
+            pointerEvents="none"
+          />
+        ) : null}
       </Animated.View>
       {(showExpandButton || textExpanded) && (
         <Pressable
@@ -144,10 +172,24 @@ function CollapsibleHtmlBlock({ htmlSource }: { htmlSource: HtmlSource }) {
           <ConstantText
             size={uiScale.betaSection.buttons.showMore.text!}
             typography={textStyle.betaSection.showMore}
-            style={{ color: themeColors.text.link }}
+            style={{
+              color: themeColors.text.link,
+              textDecorationLine: "underline",
+            }}
           >
             {textExpanded ? "Show less" : "Show more"}
           </ConstantText>
+          <View
+            style={[styles.chevronSlot, { width: chevronSize }]}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <FontAwesome5
+              name={textExpanded ? "chevron-up" : "chevron-down"}
+              size={chevronSize}
+              color={themeColors.text.link}
+            />
+          </View>
         </Pressable>
       )}
     </View>
@@ -217,11 +259,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   textContent: {},
+  collapseFade: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: COLLAPSE_FADE_HEIGHT,
+  },
   htmlMeasureScrollContent: {
     width: CONTENT_WIDTH,
   },
   showMoreButton: {
     marginTop: 8,
     alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  chevronSlot: {
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
