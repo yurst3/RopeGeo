@@ -6,12 +6,13 @@ import {
   mobileDownloadJobQueue,
   mobileDownloadPlatformHarness,
 } from "@/utils/download/mobileDownloadJobQueue";
+import { downloadJobQueueStore } from "@/utils/download/downloadJobQueueStore";
 import { savedPageFromCompletedJob } from "@/utils/download/savedPageFromCompletedJob";
-import { MAPBOX_STYLE_URL } from "@/constants/mapbox";
+import { MAPBOX_STYLE_URLS } from "@/constants/mapbox";
 import { useNetworkStatus } from "@/context/app/NetworkStatusContext";
 import { useSavedPages } from "@/context/data/SavedPagesContext";
 import { SERVICE_BASE_URL, Service } from "ropegeo-common/components";
-import type { OnlinePageView } from "ropegeo-common/models";
+import type { OnlineRopewikiPageView } from "ropegeo-common/models";
 import type { DownloadJob, DownloadJobUISnapshot } from "ropegeo-common/download";
 import {
   createContext,
@@ -20,14 +21,14 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { AppState } from "react-native";
 
 type EnqueuePageDownloadInput = {
   pageId: string;
-  data: OnlinePageView;
+  data: OnlineRopewikiPageView;
 };
 
 export type EnqueueSavedPageDownloadInput = {
@@ -47,7 +48,8 @@ const DownloadJobQueueContext = createContext<DownloadJobQueueContextValue | nul
 );
 
 function abortAllJobs(): void {
-  for (const pageId of Object.keys(mobileDownloadJobQueue.getSnapshots())) {
+  const pageIds = Object.keys(mobileDownloadJobQueue.getSnapshots());
+  for (const pageId of pageIds) {
     mobileDownloadJobQueue.abort(pageId);
   }
 }
@@ -61,16 +63,16 @@ export function DownloadJobQueueProvider({ children }: { children: ReactNode }) 
   const { isOnline } = useNetworkStatus();
   const { savedEntries, addSaved, replaceSaved, refreshFromStorage } = useSavedPages();
   const savedEntriesRef = useRef(savedEntries);
-  const [snapshots, setSnapshots] = useState<Record<string, DownloadJobUISnapshot>>(
-    queue.getSnapshots(),
+  const snapshots = useSyncExternalStore(
+    downloadJobQueueStore.subscribe,
+    downloadJobQueueStore.getSnapshot,
+    downloadJobQueueStore.getSnapshot,
   );
   const pendingInvalidPageIdsRef = useRef<string[]>([]);
 
   useEffect(() => {
     savedEntriesRef.current = savedEntries;
   }, [savedEntries]);
-
-  useEffect(() => queue.subscribe(setSnapshots), [queue]);
 
   const makeOnSuccess = useCallback(
     () => async (job: DownloadJob) => {
@@ -93,7 +95,7 @@ export function DownloadJobQueueProvider({ children }: { children: ReactNode }) 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "active") {
-        setSnapshots(queue.getSnapshots());
+        downloadJobQueueStore.refreshSnapshot();
         void (async () => {
           await refreshFromStorage();
           pendingInvalidPageIdsRef.current = [
@@ -109,7 +111,7 @@ export function DownloadJobQueueProvider({ children }: { children: ReactNode }) 
 
   const downloadConfig = useMemo(
     () => ({
-      mapboxStyleUrl: MAPBOX_STYLE_URL,
+      mapboxStyleUrls: MAPBOX_STYLE_URLS,
       webScraperBaseUrl: SERVICE_BASE_URL[Service.WEBSCRAPER],
     }),
     [],

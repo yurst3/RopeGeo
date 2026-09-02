@@ -13,6 +13,7 @@ import type {
 export type StandardButtonKeys =
   | "back"
   | "filter"
+  | "mapLayers"
   | "save"
   | "share"
   | "externalLink"
@@ -176,13 +177,6 @@ export type MiniMapColors = {
 };
 
 export type MapColors = {
-  marker: MarkerColors;
-  unfocusedLineSegment: string;
-  /**
-   * Default for line segments without a color in map data; overridden when the
-   * segment (or its legend row) has `strokeColor` / tile `stroke`.
-   */
-  focusedLineSegment: string;
   minimap: MiniMapColors;
 };
 

@@ -1,5 +1,6 @@
 import { parseStrokeColor, parseStrokeWidth } from "@/utils/minimap/pageMiniMapSegments";
 import { ScalingText } from "@/components/text/ScalingText";
+import { useMapOverlayColors } from "@/hooks/map/useMapOverlayColors";
 import { useColorTheme } from "@/context/theme/ColorThemeContext";
 import { useTextStyle } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
@@ -227,11 +228,13 @@ export function MapLegendPanel({
   onExpandedFootprintChange,
 }: MapLegendPanelProps) {
   const themeColors = useColorTheme();
+  const overlayColors = useMapOverlayColors();
   const uiScale = useUiScale();
   const textStyle = useTextStyle();
   const iconScale = useResolvedIconSizeScale();
   const chevronSize = Math.round(LEGEND_CHEVRON_SIZE * iconScale);
-  const { minimap, focusedLineSegment } = themeColors.map;
+  const { minimap } = themeColors.map;
+  const { focusedLineSegment } = overlayColors;
   const { text, cardHighlight } = themeColors;
   const { bodyBackground, headerBackground, shadow } = minimap.legend;
   const pointMarkerImageSource = useBundledImageSource(POINT_MARKER_IMAGE);

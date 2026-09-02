@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import {
-  type OnlinePageView,
+  type OnlineRopewikiPageView,
   SavedPage,
   SAVED_PAGES_STORAGE_KEY,
 } from "ropegeo-common/models";
@@ -24,7 +24,7 @@ type SavedPagesContextValue = {
   replaceSaved: (entry: SavedPage) => void;
   removeSaved: (pageId: string) => void;
   removeDownloadBundle: (pageId: string) => Promise<void>;
-  toggleSaveFromRopewikiPage: (data: OnlinePageView) => void;
+  toggleSaveFromRopewikiPage: (data: OnlineRopewikiPageView) => void;
   refreshFromStorage: () => Promise<void>;
 };
 
@@ -162,7 +162,7 @@ export function SavedPagesProvider({ children }: { children: ReactNode }) {
   );
 
   const toggleSaveFromRopewikiPage = useCallback(
-    (data: OnlinePageView) => {
+    (data: OnlineRopewikiPageView) => {
       setSavedEntries((prev) => {
         const existing = prev.find((e) => e.preview.id === data.id);
         if (existing != null) {

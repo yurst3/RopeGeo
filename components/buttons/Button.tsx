@@ -7,6 +7,7 @@ import {
   StyleSheet,
   type ViewStyle,
 } from "react-native";
+import { STANDARD_BUTTON_SHADOW } from "@/utils/theme/standardButtonShadow";
 
 export const STANDARD_BUTTON_SIZE = 44;
 
@@ -97,10 +98,7 @@ const styles = StyleSheet.create({
   button: {
     justifyContent: "center",
     alignItems: "center",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    ...STANDARD_BUTTON_SHADOW,
   },
   buttonPressed: {
     opacity: 0.6,

@@ -16,8 +16,9 @@ import {
 } from "@rnmapbox/maps";
 import type { ComponentRef } from "react";
 import { useEffect, useMemo, useRef } from "react";
-import { useColorTheme } from "@/context/theme/ColorThemeContext";
+import { MAPBOX_ROUTES_ABOVE_LAYER_ID, MAPBOX_ROUTES_SYMBOL_LAYER_IDS } from "@/constants/mapbox";
 import { useNetworkStatus } from "@/context/app/NetworkStatusContext";
+import { useMapOverlayColors } from "@/hooks/map/useMapOverlayColors";
 import { useRouteMarkerMetrics } from "@/utils/layout/routeMarkerLayout";
 import { useMapMarkerTextFont } from "@/utils/theme/resolvers";
 import {
@@ -65,6 +66,11 @@ type RouteMarkersLayerProps = {
   focusedRouteId?: string | null;
   /** Marker uses selected icon for this id even without tap focus (e.g. page centered route). */
   accentRouteId?: string | null;
+  /**
+   * When false, keep `/routes` loading but do not mount Mapbox marker layers.
+   * Use during style switches so a basemap change does not remount the data loader.
+   */
+  mapLayersReady?: boolean;
 };
 
 type RouteMarkersLayerContentProps = {
@@ -82,6 +88,7 @@ type RouteMarkersLayerContentProps = {
   onRouteClusterPress?: () => void;
   focusedRouteId?: string | null;
   accentRouteId?: string | null;
+  mapLayersReady: boolean;
 };
 
 function RouteMarkersLayerContent({
@@ -98,8 +105,9 @@ function RouteMarkersLayerContent({
   onRouteClusterPress,
   focusedRouteId,
   accentRouteId,
+  mapLayersReady,
 }: RouteMarkersLayerContentProps) {
-  const { map } = useColorTheme();
+  const overlay = useMapOverlayColors();
   const markerMetrics = useRouteMarkerMetrics();
   const markerTextFont = useMapMarkerTextFont();
   const shapeSourceRef = useRef<ComponentRef<typeof ShapeSource>>(null);
@@ -130,19 +138,21 @@ function RouteMarkersLayerContent({
   const unclusteredStyle = useMemo(
     () =>
       unclusteredRouteMarkerSymbolStyle(
-        map.marker,
+        overlay.marker,
         unclusteredIconImage,
         unclusteredIconSize,
         markerMetrics,
         markerTextFont,
       ),
-    [map.marker, unclusteredIconImage, unclusteredIconSize, markerMetrics, markerTextFont],
+    [overlay.marker, unclusteredIconImage, unclusteredIconSize, markerMetrics, markerTextFont],
   );
 
   const clusterStyle = useMemo(
-    () => clusterRouteMarkerSymbolStyle(map.marker, markerMetrics, markerTextFont),
-    [map.marker, markerMetrics, markerTextFont],
+    () => clusterRouteMarkerSymbolStyle(overlay.marker, markerMetrics, markerTextFont),
+    [overlay.marker, markerMetrics, markerTextFont],
   );
+
+  const [unclusteredSymbolId, clusterSymbolId] = MAPBOX_ROUTES_SYMBOL_LAYER_IDS;
 
   useEffect(() => {
     onStateChange?.({
@@ -211,7 +221,7 @@ function RouteMarkersLayerContent({
     }
   };
 
-  if (data == null || data.features.length === 0) {
+  if (!mapLayersReady || data == null || data.features.length === 0) {
     return null;
   }
 
@@ -225,12 +235,14 @@ function RouteMarkersLayerContent({
       onPress={handlePress}
     >
       <SymbolLayer
-        id="routes-symbol-layer-unclustered"
+        id={unclusteredSymbolId}
+        aboveLayerID={MAPBOX_ROUTES_ABOVE_LAYER_ID}
         filter={["!", ["has", "point_count"]]}
         style={unclusteredStyle}
       />
       <SymbolLayer
-        id="routes-symbol-layer-clusters"
+        id={clusterSymbolId}
+        aboveLayerID={unclusteredSymbolId}
         filter={["has", "point_count"]}
         style={clusterStyle}
       />
@@ -262,6 +274,7 @@ export function RouteMarkersLayer({
   routesParams,
   focusedRouteId = null,
   accentRouteId = null,
+  mapLayersReady = true,
 }: RouteMarkersLayerProps) {
   const { isOnline } = useNetworkStatus();
   const paginationParams = useMemo((): RoutesParams => {
@@ -295,6 +308,7 @@ export function RouteMarkersLayer({
             onRouteClusterPress={onRouteClusterPress}
             focusedRouteId={focusedRouteId}
             accentRouteId={accentRouteId}
+            mapLayersReady={mapLayersReady}
           />
         );
       }}

@@ -78,14 +78,6 @@ export const fabulousTheme: ThemeColors = {
     iconHighlight: "#4ade80",
   },
   map: {
-    marker: {
-      defaultIcon: "#3B0764",
-      clusterIcon: "#3B0764",
-      text: "#000000",
-      textHalo: "#ffffff",
-    },
-    unfocusedLineSegment: "#C084FC",
-    focusedLineSegment: "#3B0764",
     minimap: {
       title: {
         background: "#3B0764",

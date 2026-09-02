@@ -1,5 +1,6 @@
 export const BACK_BUTTON_KEY = "back";
 export const FILTER_BUTTON_KEY = "filter";
+export const MAP_LAYERS_BUTTON_KEY = "mapLayers";
 export const SAVE_BUTTON_KEY = "save";
 export const SHARE_BUTTON_KEY = "share";
 export const EXTERNAL_LINK_BUTTON_KEY = "externalLink";

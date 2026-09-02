@@ -57,6 +57,7 @@ import { useTextStyle } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
 import { useRoutePreviewFloaterLayout } from "@/utils/layout/buttonChromeLayout";
 import { RoutePreviewPlaceholder } from "./RoutePreviewPlaceholder";
+import { standardButtonShadowStyle } from "@/utils/theme/standardButtonShadow";
 
 const NO_IMAGE_ICON_SIZE = 36;
 
@@ -110,7 +111,7 @@ function SinglePreviewCard({
   const themeColors = useColorTheme();
   const textStyle = useTextStyle();
   const metrics = useRoutePreviewMetrics();
-  const { text, image, background } = themeColors;
+  const { text, image, background, button } = themeColors;
   const previewImageUri =
     preview.fetchType === "online" ? preview.imageUrl : preview.downloadedImagePath;
   const [imageLoading, setImageLoading] = useState(!!previewImageUri);
@@ -130,14 +131,23 @@ function SinglePreviewCard({
     >
       <View
         style={[
-          styles.card,
+          styles.cardShadow,
+          standardButtonShadowStyle(button.shadowColor),
           {
             width: metrics.cardWidth,
-            backgroundColor: background,
           },
           fillCarouselHeight ? styles.cardFillCarousel : null,
         ]}
       >
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: background,
+            },
+            fillCarouselHeight ? styles.cardFillCarousel : null,
+          ]}
+        >
         <View
           style={[
             styles.cardContent,
@@ -227,7 +237,8 @@ function SinglePreviewCard({
           </View>
         </View>
       </View>
-    </View>
+      </View>
+      </View>
     </BadgeLayoutProvider>
   );
 
@@ -352,7 +363,7 @@ function RoutePreviewDataView({
                 height: floaterLayout.floaterSize,
                 borderRadius: floaterLayout.floaterSize / 2,
                 backgroundColor: themeColors.background,
-                shadowColor: themeColors.button.shadowColor,
+                ...standardButtonShadowStyle(themeColors.button.shadowColor),
               },
             ]}
             pointerEvents="none"
@@ -697,10 +708,6 @@ const styles = StyleSheet.create({
   savedGlyphCircle: {
     justifyContent: "center",
     alignItems: "center",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
   },
   externalLinkButtonWrap: {
     position: "absolute",
@@ -724,6 +731,9 @@ const styles = StyleSheet.create({
   },
   carouselSlide: {
     alignSelf: "stretch",
+  },
+  cardShadow: {
+    borderRadius: ROUTE_PREVIEW_CARD_BORDER_RADIUS,
   },
   card: {
     borderRadius: ROUTE_PREVIEW_CARD_BORDER_RADIUS,

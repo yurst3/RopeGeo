@@ -1,4 +1,10 @@
 import { ButtonStack } from "@/components/buttons/ButtonStack";
+import { MapLayersButton } from "@/components/buttons/standard/MapLayersButton";
+import { MapStyleLayers } from "@/components/mapLayers/MapStyleLayers";
+import { useMapLayersSheet } from "@/context/ui/MapLayersSheetContext";
+import { useMapOverlayColors } from "@/hooks/map/useMapOverlayColors";
+import { useMapLayersSettings } from "@/hooks/map/useMapLayersSettings";
+import { useMapStyleLoadGate } from "@/hooks/map/useMapStyleLoadGate";
 import { ResetCameraOrientationButton } from "@/components/buttons/standard/ResetCameraOrientationButton";
 import { ResetCameraToBoundsButton } from "@/components/buttons/standard/ResetCameraToBoundsButton";
 import { ResetCameraToPositionButton } from "@/components/buttons/standard/ResetCameraToPositionButton";
@@ -40,7 +46,7 @@ import {
   minimapStyles,
 } from "./shared/minimapShared";
 import { ConstantText } from "@/components/text/ConstantText";
-import { MAPBOX_STYLE_URL } from "@/constants/mapbox";
+import { MAPBOX_CUSTOM_LAYER_SLOT } from "@/constants/mapbox";
 import { useColorTheme } from "@/context/theme/ColorThemeContext";
 import { useTextStyle } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
@@ -49,7 +55,10 @@ import { useMiniMapShell } from "@/components/minimap/miniMapAnimatedCard";
 import type { MiniMapReloadRegisterRef } from "@/utils/minimap/miniMapHandle";
 import { useMiniMapViewportCameraOnLayout } from "@/utils/minimap/useMiniMapViewportCameraOnLayout";
 import { useMiniMapCamera } from "@/utils/minimap/useMiniMapCamera";
-import { pagePointLabelSymbolStyle } from "@/utils/explore/mapMarkerLayerStyles";
+import {
+  pagePointIconSymbolStyle,
+  pagePointLabelSymbolStyle,
+} from "@/utils/explore/mapMarkerLayerStyles";
 import { pageMiniMapPointIconSize } from "@/utils/explore/routeMarkerIcons";
 import {
   Camera,
@@ -187,7 +196,15 @@ export function PageMiniMapView({
   reloadRegisterRef,
 }: PageMiniMapViewProps) {
   const themeColors = useColorTheme();
-  const { map } = themeColors;
+  const overlay = useMapOverlayColors();
+  const mapLayers = useMapLayersSettings();
+  const {
+    styleReady,
+    onDidFinishLoadingMap: onStyleReady,
+    onDidFinishLoadingStyle: onStyleFinishedLoading,
+    onMapLoadingError: onStyleLoadError,
+  } = useMapStyleLoadGate(mapLayers.styleUrl);
+  const { openMapLayersSheet } = useMapLayersSheet();
   const uiScale = useUiScale();
   const textStyle = useTextStyle();
   const { settings } = useSettings();
@@ -556,7 +573,7 @@ export function PageMiniMapView({
     const style = lineSelectionStyle(
       selectedSegmentKey,
       miniMap.legend,
-      map.focusedLineSegment,
+      overlay.focusedLineSegment,
     );
     const legend = miniMap.legend;
     const key = selectedSegmentKey;
@@ -606,7 +623,7 @@ export function PageMiniMapView({
     mapFinishedLoading,
     shell.expanded,
     miniMap.legend,
-    map.focusedLineSegment,
+    overlay.focusedLineSegment,
     miniMapReloadKey,
     windowWidth,
     windowHeight,
@@ -874,7 +891,7 @@ export function PageMiniMapView({
       ? selectedLineHighlight
       : EMPTY_LINE_HIGHLIGHT;
   const lineHighlightStroke =
-    selectedLineStyle?.stroke ?? map.focusedLineSegment;
+    selectedLineStyle?.stroke ?? overlay.focusedLineSegment;
   const lineHighlightWidth =
     selectedLineStyle?.strokeWidth ?? DEFAULT_LINE_HIGHLIGHT_WIDTH;
   const lineHighlightOpacity =
@@ -962,24 +979,22 @@ export function PageMiniMapView({
   ]);
 
   const pagePointLabelStyle = useMemo(
-    () => pagePointLabelSymbolStyle(map.marker, markerMetrics, markerTextFont),
-    [map.marker, markerMetrics, markerTextFont],
+    () => pagePointLabelSymbolStyle(overlay.marker, markerMetrics, markerTextFont),
+    [overlay.marker, markerMetrics, markerTextFont],
   );
 
   const pagePointIconStyle = useMemo(
-    () => ({
-      iconImage: pointIconImageExpr,
-      iconSize: pageMiniMapPointIconSize(
-        selectedSegmentKey,
-        markerMetrics.iconSizeScale,
+    () =>
+      pagePointIconSymbolStyle(
+        overlay.marker,
+        pointIconImageExpr,
+        pageMiniMapPointIconSize(
+          selectedSegmentKey,
+          markerMetrics.iconSizeScale,
+        ),
       ),
-      iconColor: map.marker.defaultIcon,
-      iconAllowOverlap: true,
-      iconIgnorePlacement: true,
-      iconAnchor: "center" as const,
-    }),
     [
-      map.marker.defaultIcon,
+      overlay.marker,
       markerMetrics.iconSizeScale,
       pointIconImageExpr,
       selectedSegmentKey,
@@ -987,8 +1002,8 @@ export function PageMiniMapView({
   );
 
   const pageLineLayerStyle = useMemo(
-    () => trailVectorLineStyle(map.focusedLineSegment),
-    [map.focusedLineSegment],
+    () => trailVectorLineStyle(overlay.focusedLineSegment),
+    [overlay.focusedLineSegment],
   );
 
   return (
@@ -1001,7 +1016,7 @@ export function PageMiniMapView({
           <MapView
             key={`${miniMapReloadKey}:offline-prepared`}
             ref={mapRef}
-            styleURL={MAPBOX_STYLE_URL}
+            styleURL={mapLayers.styleUrl}
             style={StyleSheet.absoluteFill}
             projection="globe"
             onLayout={onMapLayout}
@@ -1013,12 +1028,20 @@ export function PageMiniMapView({
             scaleBarEnabled={false}
             attributionEnabled={shell.expanded}
             logoEnabled={shell.expanded}
+            requestDisallowInterceptTouchEvent
             logoPosition={Platform.OS === "android" ? { bottom: 40, left: 10 } : undefined}
             attributionPosition={Platform.OS === "android" ? { bottom: 40, right: 10 } : undefined}
             onCameraChanged={onCameraChangedWrapped}
             onPress={onMapPress}
-            onDidFinishLoadingMap={() => setMapFinishedLoading(true)}
-            onMapLoadingError={() => setMapLoadError(new Error("Could not load map"))}
+            onDidFinishLoadingMap={() => {
+              setMapFinishedLoading(true);
+              onStyleReady();
+            }}
+            onDidFinishLoadingStyle={onStyleFinishedLoading}
+            onMapLoadingError={() => {
+              setMapLoadError(new Error("Could not load map"));
+              onStyleLoadError();
+            }}
           >
             <LocationPuck
               puckBearingEnabled
@@ -1035,49 +1058,62 @@ export function PageMiniMapView({
                 },
               }}
             />
-            <Images nativeAssetImages={[...ROUTE_MARKER_NATIVE_ASSET_IMAGES]} />
-            <VectorSource id={PAGE_VECTOR_SOURCE_ID} tileUrlTemplates={[tileTemplate]}>
-              <LineLayer
-                id={PAGE_LINE_LAYER_ID}
-                sourceLayerID={miniMap.polyLineLayerId}
-                filter={LINE_ONLY_FILTER}
-                style={pageLineLayerStyle}
-              />
-              <SymbolLayer
-                id={PAGE_POINT_LABEL_LAYER_ID}
-                sourceLayerID={miniMap.pointLayerId}
-                filter={POINT_ONLY_FILTER}
-                style={pagePointLabelStyle}
-              />
-              <SymbolLayer
-                id={PAGE_POINT_ICON_LAYER_ID}
-                sourceLayerID={miniMap.pointLayerId}
-                filter={POINT_ONLY_FILTER}
-                style={pagePointIconStyle}
-              />
-            </VectorSource>
-            <ShapeSource id={PAGE_SELECTED_HALO_SOURCE_ID} shape={lineHighlightShape}>
-              <LineLayer
-                id={PAGE_SELECTED_HALO_LAYER_ID}
-                style={{
-                  lineColor: contrastHaloColor(lineHighlightStroke),
-                  lineWidth: Math.max(8, lineHighlightWidth + 6),
-                  lineOpacity: lineHighlightOpacity,
-                  lineCap: "round",
-                  lineJoin: "round",
-                }}
-              />
-              <LineLayer
-                id={PAGE_SELECTED_OVERLAY_LAYER_ID}
-                style={{
-                  lineColor: lineHighlightStroke,
-                  lineWidth: lineHighlightWidth,
-                  lineOpacity: lineHighlightOpacity,
-                  lineCap: "round",
-                  lineJoin: "round",
-                }}
-              />
-            </ShapeSource>
+            {styleReady ? (
+              <>
+                <MapStyleLayers
+                  lightPreset={mapLayers.mapLightPreset}
+                  showElevationContours={mapLayers.showContoursOnMap}
+                />
+                <Images nativeAssetImages={[...ROUTE_MARKER_NATIVE_ASSET_IMAGES]} />
+                <VectorSource id={PAGE_VECTOR_SOURCE_ID} tileUrlTemplates={[tileTemplate]}>
+                  <LineLayer
+                    id={PAGE_LINE_LAYER_ID}
+                    sourceLayerID={miniMap.polyLineLayerId}
+                    slot={MAPBOX_CUSTOM_LAYER_SLOT}
+                    filter={LINE_ONLY_FILTER}
+                    style={pageLineLayerStyle}
+                  />
+                  <SymbolLayer
+                    id={PAGE_POINT_LABEL_LAYER_ID}
+                    sourceLayerID={miniMap.pointLayerId}
+                    slot={MAPBOX_CUSTOM_LAYER_SLOT}
+                    filter={POINT_ONLY_FILTER}
+                    style={pagePointLabelStyle}
+                  />
+                  <SymbolLayer
+                    id={PAGE_POINT_ICON_LAYER_ID}
+                    sourceLayerID={miniMap.pointLayerId}
+                    slot={MAPBOX_CUSTOM_LAYER_SLOT}
+                    filter={POINT_ONLY_FILTER}
+                    style={pagePointIconStyle}
+                  />
+                </VectorSource>
+                <ShapeSource id={PAGE_SELECTED_HALO_SOURCE_ID} shape={lineHighlightShape}>
+                  <LineLayer
+                    id={PAGE_SELECTED_HALO_LAYER_ID}
+                    slot={MAPBOX_CUSTOM_LAYER_SLOT}
+                    style={{
+                      lineColor: contrastHaloColor(lineHighlightStroke),
+                      lineWidth: Math.max(8, lineHighlightWidth + 6),
+                      lineOpacity: lineHighlightOpacity,
+                      lineCap: "round",
+                      lineJoin: "round",
+                    }}
+                  />
+                  <LineLayer
+                    id={PAGE_SELECTED_OVERLAY_LAYER_ID}
+                    slot={MAPBOX_CUSTOM_LAYER_SLOT}
+                    style={{
+                      lineColor: lineHighlightStroke,
+                      lineWidth: lineHighlightWidth,
+                      lineOpacity: lineHighlightOpacity,
+                      lineCap: "round",
+                      lineJoin: "round",
+                    }}
+                  />
+                </ShapeSource>
+              </>
+            ) : null}
           </MapView>
           {shell.expanded && pointTooltip != null ? (
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -1158,6 +1194,13 @@ export function PageMiniMapView({
             </View>
           ) : null}
           <ButtonStack top={buttonStackTop}>
+            <ButtonStack.Slot id="map-layers" visible>
+              <MapLayersButton
+                stacked
+                customized={mapLayers.customized}
+                onPress={openMapLayersSheet}
+              />
+            </ButtonStack.Slot>
             <ButtonStack.Slot id="bounds" visible={boundsResetButtonVisible}>
               <ResetCameraToBoundsButton
                 stacked

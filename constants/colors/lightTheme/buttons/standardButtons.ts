@@ -4,6 +4,7 @@ import {
   EXPAND_MINI_MAP_BUTTON_KEY,
   EXTERNAL_LINK_BUTTON_KEY,
   GOOGLE_DIRECTIONS_BUTTON_KEY,
+  MAP_LAYERS_BUTTON_KEY,
   FILTER_BUTTON_KEY,
   RESET_CAMERA_ORIENTATION_BUTTON_KEY,
   RESET_CAMERA_TO_BOUNDS_BUTTON_KEY,
@@ -34,6 +35,7 @@ const highlightedStandard: StandardButtonColors = {
 export const standardButtons: Record<StandardButtonKeys, StandardButtonColors> = {
   [BACK_BUTTON_KEY]: defaultStandard,
   [FILTER_BUTTON_KEY]: highlightedStandard,
+  [MAP_LAYERS_BUTTON_KEY]: highlightedStandard,
   [SAVE_BUTTON_KEY]: highlightedStandard,
   [SHARE_BUTTON_KEY]: defaultStandard,
   [EXTERNAL_LINK_BUTTON_KEY]: defaultStandard,

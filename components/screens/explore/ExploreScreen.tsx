@@ -4,11 +4,15 @@ import { ResetCameraToPositionButton } from "@/components/buttons/standard/Reset
 import { useExploreHeaderLayout, useToastChromeLayout } from "@/utils/layout/buttonChromeLayout";
 import { FilterBottomSheet } from "@/components/filters/FilterBottomSheet";
 import { FilterButton } from "@/components/buttons/standard/FilterButton";
+import { MapLayersButton } from "@/components/buttons/standard/MapLayersButton";
+import { MapStyleLayers } from "@/components/mapLayers/MapStyleLayers";
+import { useMapLayersSheet } from "@/context/ui/MapLayersSheetContext";
+import { useMapLayersSettings } from "@/hooks/map/useMapLayersSettings";
+import { useMapStyleLoadGate } from "@/hooks/map/useMapStyleLoadGate";
 import { useSavedFilters } from "@/context/data/SavedFiltersContext";
 import { useNetworkRequestToasts } from "@/utils/toast/useNetworkRequestToasts";
 import { useRoutesProgressToast } from "@/utils/toast/useRoutesProgressToast";
 import { TOAST_KEY_ROUTES_ERROR } from "@/constants/toasts/toastArchetypes";
-import { MAPBOX_STYLE_URL } from "@/constants/mapbox";
 import { useNetworkStatus } from "@/context/app/NetworkStatusContext";
 import { RouteMarkersLayer, type RoutesState } from "./RouteMarkersLayer";
 import { TrailsLayer } from "./TrailsLayer";
@@ -70,6 +74,15 @@ export function ExploreScreen() {
     persistExploreFilter,
     getEffectiveRouteFilterForExplore,
   } = useSavedFilters();
+  const { openMapLayersSheet } = useMapLayersSheet();
+  const mapLayers = useMapLayersSettings();
+  const {
+    styleReady,
+    onDidFinishLoadingMap: onStyleReady,
+    onDidFinishLoadingStyle: onStyleFinishedLoading,
+    onMapLoadingError: onStyleLoadError,
+  } = useMapStyleLoadGate(mapLayers.styleUrl);
+
   const [routeFilterSheetOpen, setRouteFilterSheetOpen] = useState(false);
   /** Snapshot of `/routes` params at sheet open — map fetch stays on this until the sheet closes. */
   const [frozenExploreRoutesParams, setFrozenExploreRoutesParams] =
@@ -267,12 +280,16 @@ export function ExploreScreen() {
           />
         </View>
         <MapView
-              styleURL={MAPBOX_STYLE_URL}
+              styleURL={mapLayers.styleUrl}
               style={styles.map}
               projection="globe"
               scaleBarEnabled={false}
+              requestDisallowInterceptTouchEvent
               logoPosition={Platform.OS === "android" ? { bottom: 40, left: 10 } : undefined}
               attributionPosition={Platform.OS === "android" ? { bottom: 40, right: 10 } : undefined}
+              onDidFinishLoadingMap={onStyleReady}
+              onDidFinishLoadingStyle={onStyleFinishedLoading}
+              onMapLoadingError={onStyleLoadError}
               onPress={() => {
                 setFocusedRouteId(null);
                 setCurrentPreview(null);
@@ -308,7 +325,20 @@ export function ExploreScreen() {
                   zoomLevel: DEFAULT_ZOOM,
                 }}
               />
+              {styleReady ? (
+                <>
+                  <MapStyleLayers
+                    lightPreset={mapLayers.mapLightPreset}
+                    showElevationContours={mapLayers.showContoursOnMap}
+                  />
+                  <TrailsLayer
+                    focusedRouteId={focusedRouteId}
+                    visibleTrailIds={currentPreview?.mapData != null ? [currentPreview.mapData] : []}
+                  />
+                </>
+              ) : null}
               <RouteMarkersLayer
+                mapLayersReady={styleReady}
                 routesParams={routesParamsForExploreMap}
                 onStateChange={onRoutesStateChange}
                 cameraRef={cameraRef}
@@ -323,10 +353,6 @@ export function ExploreScreen() {
                   setFocusedRouteId(null);
                   setCurrentPreview(null);
                 }}
-              />
-              <TrailsLayer
-                focusedRouteId={focusedRouteId}
-                visibleTrailIds={currentPreview?.mapData != null ? [currentPreview.mapData] : []}
               />
         </MapView>
         <RoutePreview
@@ -364,6 +390,12 @@ export function ExploreScreen() {
                 );
                 setRouteFilterSheetOpen(true);
               }}
+            />
+          </ButtonStack.Slot>
+          <ButtonStack.Slot id="map-layers" visible animateLayout={false}>
+            <MapLayersButton
+              customized={mapLayers.customized}
+              onPress={openMapLayersSheet}
             />
           </ButtonStack.Slot>
           <ButtonStack.Slot id="position" visible={isPositionButtonVisible}>

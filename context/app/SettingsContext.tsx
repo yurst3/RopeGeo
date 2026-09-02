@@ -1,4 +1,5 @@
 import { Settings } from "@/constants/settings";
+import type { MapBasemap, MapLightPreset } from "@/constants/settings/mapLayersTypes";
 import type { FontProfileKey } from "@/constants/text/font/types";
 import type { UiScaleProfileKey } from "@/constants/uiScale/types";
 import type { ThemePreference, UnitsPreference } from "@/constants/settings/types";
@@ -58,6 +59,12 @@ type SettingsContextValue = {
     min: RelevanceStrength,
     max: RelevanceStrength,
   ) => void;
+  setMapLayersDraft: (draft: {
+    mapBasemap: MapBasemap;
+    mapLightPreset: MapLightPreset;
+    showSatelliteContours: boolean;
+  }) => void;
+  resetMapLayers: () => void;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -172,6 +179,31 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [schedulePersist],
   );
 
+  const resetMapLayers = useCallback(() => {
+    setSettings((prev) => {
+      const next = cloneSettings(prev);
+      next.resetMapLayers();
+      schedulePersist(next);
+      return next;
+    });
+  }, [schedulePersist]);
+
+  const setMapLayersDraft = useCallback(
+    (draft: {
+      mapBasemap: MapBasemap;
+      mapLightPreset: MapLightPreset;
+      showSatelliteContours: boolean;
+    }) => {
+      setSettings((prev) => {
+        const next = cloneSettings(prev);
+        next.applyMapLayersDraft(draft);
+        schedulePersist(next);
+        return next;
+      });
+    },
+    [schedulePersist],
+  );
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       settings,
@@ -182,6 +214,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setUnits,
       setShowRelevantContext,
       setShowRelevantContextStrengths,
+      setMapLayersDraft,
+      resetMapLayers,
     }),
     [
       settings,
@@ -192,6 +226,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setUnits,
       setShowRelevantContext,
       setShowRelevantContextStrengths,
+      setMapLayersDraft,
+      resetMapLayers,
     ],
   );
 

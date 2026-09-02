@@ -9,7 +9,7 @@ export const ROUTE_MARKER_CLUSTER_IMAGE = "route_marker_cluster" as const;
 
 /** Passed to `<Images nativeAssetImages={...} />` on explore and minimap maps. */
 export const ROUTE_MARKER_NATIVE_ASSET_IMAGES = [
-  ROUTE_MARKER_IMAGE,
-  ROUTE_MARKER_SELECTED_IMAGE,
-  ROUTE_MARKER_CLUSTER_IMAGE,
+  { name: ROUTE_MARKER_IMAGE, sdf: true },
+  { name: ROUTE_MARKER_SELECTED_IMAGE, sdf: true },
+  { name: ROUTE_MARKER_CLUSTER_IMAGE, sdf: true },
 ] as const;

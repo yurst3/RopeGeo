@@ -1,4 +1,10 @@
 import { ButtonStack } from "@/components/buttons/ButtonStack";
+import { MapLayersButton } from "@/components/buttons/standard/MapLayersButton";
+import { MapStyleLayers } from "@/components/mapLayers/MapStyleLayers";
+import { useMapLayersSheet } from "@/context/ui/MapLayersSheetContext";
+import { useMapOverlayColors } from "@/hooks/map/useMapOverlayColors";
+import { useMapLayersSettings } from "@/hooks/map/useMapLayersSettings";
+import { useMapStyleLoadGate } from "@/hooks/map/useMapStyleLoadGate";
 import { ResetCameraOrientationButton } from "@/components/buttons/standard/ResetCameraOrientationButton";
 import { ResetCameraToBoundsButton } from "@/components/buttons/standard/ResetCameraToBoundsButton";
 import { ResetCameraToPositionButton } from "@/components/buttons/standard/ResetCameraToPositionButton";
@@ -19,14 +25,16 @@ import {
   unclusteredRouteMarkerSymbolStyle,
 } from "@/utils/explore/mapMarkerLayerStyles";
 import { TrailsLayer } from "@/components/screens/explore/TrailsLayer";
-import { MAPBOX_STYLE_URL } from "@/constants/mapbox";
-import { useColorTheme } from "@/context/theme/ColorThemeContext";
+import { MAPBOX_CUSTOM_LAYER_SLOT } from "@/constants/mapbox";
 import { useText } from "@/context/typography/TextContext";
-import { useUiScale } from "@/context/typography/UIScaleContext";
-import { expandedMiniMapButtonStackTopScaled, useHeaderChromeLayout } from "@/utils/layout/buttonChromeLayout";
+import {
+  expandedMiniMapHeaderRowStackTop,
+  useHeaderChromeLayout,
+  useMapButtonChromeLayout,
+} from "@/utils/layout/buttonChromeLayout";
 import { routePreviewDockedPaddingBottom } from "@/utils/minimap/fullScreenMapLayout";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { MiniMapHeader, MiniMapHeaderSideSlot } from "./shared/MiniMapHeader";
+import { MiniMapHeader } from "./shared/MiniMapHeader";
 import { miniMapHostStyles } from "@/utils/minimap/miniMapHostStyles";
 import {
   MINIMAP_FIT_BOUNDS_ANIMATION_MS,
@@ -46,7 +54,7 @@ import {
   useState,
   type ComponentRef,
 } from "react";
-import { Platform, StyleSheet, View, useWindowDimensions } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { useRouteMarkerMetrics } from "@/utils/layout/routeMarkerLayout";
 import { useMapMarkerTextFont } from "@/utils/theme/resolvers";
 import Animated from "react-native-reanimated";
@@ -116,10 +124,17 @@ export function CenteredRegionMiniMapView({
   mapDirections = null,
   reloadRegisterRef,
 }: CenteredRegionMiniMapViewProps) {
-  const { map } = useColorTheme();
-  const uiScale = useUiScale();
-  const { fontScale } = useWindowDimensions();
+  const overlayColors = useMapOverlayColors();
+  const mapLayers = useMapLayersSettings();
+  const {
+    styleReady,
+    onDidFinishLoadingMap: onStyleReady,
+    onDidFinishLoadingStyle: onStyleFinishedLoading,
+    onMapLoadingError: onStyleLoadError,
+  } = useMapStyleLoadGate(mapLayers.styleUrl);
+  const { openMapLayersSheet } = useMapLayersSheet();
   const headerChrome = useHeaderChromeLayout();
+  const mapChrome = useMapButtonChromeLayout();
   const markerMetrics = useRouteMarkerMetrics();
   const markerTextFont = useMapMarkerTextFont();
   const shell = useMiniMapShell();
@@ -223,18 +238,18 @@ export function CenteredRegionMiniMapView({
   const offlineUnclusteredStyle = useMemo(
     () =>
       unclusteredRouteMarkerSymbolStyle(
-        map.marker,
+        overlayColors.marker,
         offlineUnclusteredIconImage,
         offlineUnclusteredIconSize,
         markerMetrics,
         markerTextFont,
       ),
-    [map.marker, offlineUnclusteredIconImage, offlineUnclusteredIconSize, markerMetrics, markerTextFont],
+    [overlayColors.marker, offlineUnclusteredIconImage, offlineUnclusteredIconSize, markerMetrics, markerTextFont],
   );
 
   const offlineClusterStyle = useMemo(
-    () => clusterRouteMarkerSymbolStyle(map.marker, markerMetrics, markerTextFont),
-    [map.marker, markerMetrics, markerTextFont],
+    () => clusterRouteMarkerSymbolStyle(overlayColors.marker, markerMetrics, markerTextFont),
+    [overlayColors.marker, markerMetrics, markerTextFont],
   );
 
   const {
@@ -386,7 +401,7 @@ export function CenteredRegionMiniMapView({
     markCameraFittedToBoundsAfter(MINIMAP_FIT_BOUNDS_ANIMATION_MS + 80);
   }, [collapsedCameraCenter, markCameraFittedToBoundsAfter]);
 
-  const boundsSlotVisible = boundsResetButtonVisible;
+  const boundsResetButtonVisibleForStack = boundsResetButtonVisible;
 
   const userLocationCoord = useForegroundUserLocation(
     shell.expanded && shell.mapBodyVisible,
@@ -513,12 +528,18 @@ export function CenteredRegionMiniMapView({
   }, [showDataLoadingOverlay, shell.setLoadingOverlayVisible]);
 
   const { insets } = shell;
+  const headerTop = insets.top + headerChrome.rowTopInset;
+  const buttonStackTop = expandedMiniMapHeaderRowStackTop(
+    headerTop,
+    headerChrome,
+    mapChrome,
+  );
 
   return (
     <>
       {shell.mapBodyVisible ? (
         <MapView
-          styleURL={MAPBOX_STYLE_URL}
+          styleURL={mapLayers.styleUrl}
           style={minimapStyles.map}
           projection="globe"
           onLayout={onMapLayout}
@@ -530,6 +551,7 @@ export function CenteredRegionMiniMapView({
           scaleBarEnabled={false}
           attributionEnabled={shell.expanded}
           logoEnabled={shell.expanded}
+          requestDisallowInterceptTouchEvent
           logoPosition={Platform.OS === "android" ? { bottom: 40, left: 10 } : undefined}
           attributionPosition={Platform.OS === "android" ? { bottom: 40, right: 10 } : undefined}
           onPress={() => {
@@ -544,6 +566,9 @@ export function CenteredRegionMiniMapView({
               setMapLiveZoom(state.properties.zoom);
             }
           }}
+          onDidFinishLoadingMap={onStyleReady}
+          onDidFinishLoadingStyle={onStyleFinishedLoading}
+          onMapLoadingError={onStyleLoadError}
         >
           <LocationPuck
             puckBearingEnabled
@@ -557,8 +582,49 @@ export function CenteredRegionMiniMapView({
               zoomLevel: DEFAULT_ZOOM,
             }}
           />
+          {styleReady ? (
+            <>
+              <MapStyleLayers
+                lightPreset={mapLayers.mapLightPreset}
+                showElevationContours={mapLayers.showContoursOnMap}
+              />
+              {liveRoutesParams == null &&
+              offlineShape != null &&
+              offlineShape.features.length > 0 ? (
+                <ShapeSource
+                  ref={shapeSourceRef}
+                  id="centered-offline-routes"
+                  shape={offlineShape}
+                  cluster
+                  clusterRadius={markerMetrics.clusterRadius}
+                  onPress={handleOfflineMarkerPress}
+                >
+                  <SymbolLayer
+                    id="centered-offline-unclustered"
+                    slot={MAPBOX_CUSTOM_LAYER_SLOT}
+                    filter={["!", ["has", "point_count"]]}
+                    style={offlineUnclusteredStyle}
+                  />
+                  <SymbolLayer
+                    id="centered-offline-clusters"
+                    slot={MAPBOX_CUSTOM_LAYER_SLOT}
+                    filter={["has", "point_count"]}
+                    style={offlineClusterStyle}
+                  />
+                  <Images nativeAssetImages={[...ROUTE_MARKER_NATIVE_ASSET_IMAGES]} />
+                </ShapeSource>
+              ) : null}
+              <TrailsLayer
+                focusedRouteId={shell.expanded ? focusedRouteId : null}
+                visibleTrailIds={
+                  shell.expanded && currentPreview?.mapData != null ? [currentPreview.mapData] : []
+                }
+              />
+            </>
+          ) : null}
           {liveRoutesParams != null ? (
             <RouteMarkersLayer
+              mapLayersReady={styleReady}
               routesParams={liveRoutesParams}
               onStateChange={setRoutesState}
               cameraRef={cameraRef}
@@ -581,34 +647,7 @@ export function CenteredRegionMiniMapView({
                 setCurrentPreview(null);
               }}
             />
-          ) : offlineShape != null && offlineShape.features.length > 0 ? (
-            <ShapeSource
-              ref={shapeSourceRef}
-              id="centered-offline-routes"
-              shape={offlineShape}
-              cluster
-              clusterRadius={markerMetrics.clusterRadius}
-              onPress={handleOfflineMarkerPress}
-            >
-              <SymbolLayer
-                id="centered-offline-unclustered"
-                filter={["!", ["has", "point_count"]]}
-                style={offlineUnclusteredStyle}
-              />
-              <SymbolLayer
-                id="centered-offline-clusters"
-                filter={["has", "point_count"]}
-                style={offlineClusterStyle}
-              />
-              <Images nativeAssetImages={[...ROUTE_MARKER_NATIVE_ASSET_IMAGES]} />
-            </ShapeSource>
           ) : null}
-          <TrailsLayer
-            focusedRouteId={shell.expanded ? focusedRouteId : null}
-            visibleTrailIds={
-              shell.expanded && currentPreview?.mapData != null ? [currentPreview.mapData] : []
-            }
-          />
         </MapView>
       ) : null}
       {shell.expanded ? (
@@ -620,17 +659,6 @@ export function CenteredRegionMiniMapView({
             title={miniMap.title}
             onBack={shell.requestCollapse}
             top={insets.top + headerChrome.rowTopInset}
-            rightSlot={
-              boundsSlotVisible ? (
-                <MiniMapHeaderSideSlot>
-                  <ResetCameraToBoundsButton
-                    stacked
-                    onPress={resetToCenteredRouteHome}
-                    visible
-                  />
-                </MiniMapHeaderSideSlot>
-              ) : undefined
-            }
           />
           <RoutePreview
             routeId={focusedRouteId}
@@ -662,14 +690,21 @@ export function CenteredRegionMiniMapView({
               }
             }}
           />
-          <ButtonStack
-            top={expandedMiniMapButtonStackTopScaled(
-              insets.top,
-              boundsSlotVisible,
-              uiScale,
-              fontScale,
-            )}
-          >
+          <ButtonStack top={buttonStackTop}>
+            <ButtonStack.Slot id="map-layers" visible>
+              <MapLayersButton
+                stacked
+                customized={mapLayers.customized}
+                onPress={openMapLayersSheet}
+              />
+            </ButtonStack.Slot>
+            <ButtonStack.Slot id="bounds" visible={boundsResetButtonVisibleForStack}>
+              <ResetCameraToBoundsButton
+                stacked
+                onPress={resetToCenteredRouteHome}
+                visible={boundsResetButtonVisibleForStack}
+              />
+            </ButtonStack.Slot>
             <ButtonStack.Slot id="orientation" visible={compassVisible}>
               <ResetCameraOrientationButton
                 stacked

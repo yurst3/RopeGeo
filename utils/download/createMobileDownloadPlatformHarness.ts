@@ -1,3 +1,4 @@
+import { MAPBOX_STYLE_KEYS, type MapboxStyleKey } from "ropegeo-common/download";
 import { deleteOfflineBundleFiles } from "@/utils/offline/deleteOfflineBundle";
 import { setDownloadedRoutePreviewsForPage } from "@/utils/offline/downloadedRoutePreviewsStorage";
 import {
@@ -17,23 +18,23 @@ import { AppState, type AppStateStatus } from "react-native";
 import type { DownloadPlatformHarness } from "ropegeo-common/download";
 import { ensureParentDir } from "./ensureParentDir";
 import { loadDownloadJobStore, saveDownloadJobStore } from "./downloadJobStore";
-import { mapboxPackName } from "./mapboxPackName";
+import { legacyMapboxPackName, mapboxPackName } from "./mapboxPackName";
 
 const mapboxAppStateSubs = new Map<string, { remove: () => void }>();
-/** Progress from createPack callbacks; avoids pack.status() before native groupID exists. */
-const mapboxPackProgressByPageId = new Map<string, number>();
+/** Progress from createPack callbacks; keyed by pack name. */
+const mapboxPackProgressByName = new Map<string, number>();
 
-function clearMapboxListener(pageId: string): void {
-  mapboxAppStateSubs.get(pageId)?.remove();
-  mapboxAppStateSubs.delete(pageId);
+function clearMapboxListener(packName: string): void {
+  mapboxAppStateSubs.get(packName)?.remove();
+  mapboxAppStateSubs.delete(packName);
 }
 
-function clearMapboxPackProgress(pageId: string): void {
-  mapboxPackProgressByPageId.delete(pageId);
+function clearMapboxPackProgress(packName: string): void {
+  mapboxPackProgressByName.delete(packName);
 }
 
-function attachMapboxResumeListener(pageId: string, packName: string): void {
-  clearMapboxListener(pageId);
+function attachMapboxResumeListener(packName: string): void {
+  clearMapboxListener(packName);
   const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
     if (next !== "active") {
       return;
@@ -53,25 +54,87 @@ function attachMapboxResumeListener(pageId: string, packName: string): void {
       }
     })();
   });
-  mapboxAppStateSubs.set(pageId, sub);
+  mapboxAppStateSubs.set(packName, sub);
+}
+
+async function deleteMapboxPacksForPage(pageId: string): Promise<void> {
+  const packNames = [
+    ...MAPBOX_STYLE_KEYS.map((styleKey) => mapboxPackName(pageId, styleKey)),
+    legacyMapboxPackName(pageId),
+  ];
+  for (const packName of packNames) {
+    clearMapboxListener(packName);
+    clearMapboxPackProgress(packName);
+    try {
+      await offlineManager.deletePack(packName);
+    } catch {
+      // Pack may not exist.
+    }
+  }
+}
+
+function downloadProgressFraction(
+  totalBytesWritten: number,
+  totalBytesExpectedToWrite: number,
+): number | null {
+  if (totalBytesExpectedToWrite <= 0) {
+    return null;
+  }
+  return Math.max(0, Math.min(1, totalBytesWritten / totalBytesExpectedToWrite));
+}
+
+async function deleteFailedDownload(destPath: string): Promise<void> {
+  try {
+    await FileSystem.deleteAsync(destPath, { idempotent: true });
+  } catch {
+    // Ignore cleanup failure.
+  }
+}
+
+async function assertDownloadSucceeded(
+  status: number,
+  destPath: string,
+): Promise<void> {
+  if (status >= 400) {
+    await deleteFailedDownload(destPath);
+    throw new Error(`Download failed: HTTP ${status}`);
+  }
 }
 
 export function createMobileDownloadPlatformHarness(): DownloadPlatformHarness {
   return {
-    async downloadFile({ url, destPath, background }) {
+    async downloadFile({ url, destPath, background, onProgress }) {
       await ensureParentDir(destPath);
       const options = background
         ? { sessionType: FileSystemSessionType.BACKGROUND }
         : undefined;
-      const result = await FileSystem.downloadAsync(url, destPath, options);
-      if (result.status >= 400) {
-        try {
-          await FileSystem.deleteAsync(destPath, { idempotent: true });
-        } catch {
-          // Ignore cleanup failure.
+
+      if (onProgress != null) {
+        const download = FileSystem.createDownloadResumable(
+          url,
+          destPath,
+          options,
+          ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+            const fraction = downloadProgressFraction(
+              totalBytesWritten,
+              totalBytesExpectedToWrite,
+            );
+            if (fraction != null) {
+              onProgress(fraction);
+            }
+          },
+        );
+        const result = await download.downloadAsync();
+        if (result == null) {
+          await deleteFailedDownload(destPath);
+          throw new Error("Download failed");
         }
-        throw new Error(`Download failed: HTTP ${result.status}`);
+        await assertDownloadSucceeded(result.status, destPath);
+        return;
       }
+
+      const result = await FileSystem.downloadAsync(url, destPath, options);
+      await assertDownloadSucceeded(result.status, destPath);
     },
     async fileExists(path) {
       const info = await FileSystem.getInfoAsync(path);
@@ -88,9 +151,8 @@ export function createMobileDownloadPlatformHarness(): DownloadPlatformHarness {
       await FileSystem.writeAsStringAsync(path, content);
     },
     ensureParentDir,
-    deletePageBundle(pageId) {
-      clearMapboxListener(pageId);
-      clearMapboxPackProgress(pageId);
+    async deletePageBundle(pageId) {
+      await deleteMapboxPacksForPage(pageId);
       return deleteOfflineBundleFiles(pageId);
     },
     async gunzipTileIfNeeded(path) {
@@ -111,21 +173,21 @@ export function createMobileDownloadPlatformHarness(): DownloadPlatformHarness {
       regionGeojson: getOfflineRegionRoutesGeojsonUri,
     },
     mapbox: {
-      async startPack({ pageId, styleUrl, bounds }) {
-        const packName = mapboxPackName(pageId);
+      async startPack({ pageId, styleKey, styleUrl, bounds }) {
+        const packName = mapboxPackName(pageId, styleKey as MapboxStyleKey);
         const packBounds: [[number, number], [number, number]] = [
           [bounds.east, bounds.north],
           [bounds.west, bounds.south],
         ];
-        clearMapboxListener(pageId);
-        clearMapboxPackProgress(pageId);
-        mapboxPackProgressByPageId.set(pageId, 0);
+        clearMapboxListener(packName);
+        clearMapboxPackProgress(packName);
+        mapboxPackProgressByName.set(packName, 0);
         try {
           await offlineManager.deletePack(packName);
         } catch {
           // Pack may not exist.
         }
-        attachMapboxResumeListener(pageId, packName);
+        attachMapboxResumeListener(packName);
         try {
           await offlineManager.createPack(
             {
@@ -141,11 +203,11 @@ export function createMobileDownloadPlatformHarness(): DownloadPlatformHarness {
                   ? (status as { percentage?: number }).percentage
                   : undefined;
               if (typeof percentage === "number") {
-                mapboxPackProgressByPageId.set(pageId, percentage);
+                mapboxPackProgressByName.set(packName, percentage);
               }
             },
             (_pack, err) => {
-              clearMapboxPackProgress(pageId);
+              clearMapboxPackProgress(packName);
               console.warn("[DownloadJob] Mapbox pack error", err.message);
             },
           );
@@ -154,9 +216,9 @@ export function createMobileDownloadPlatformHarness(): DownloadPlatformHarness {
           throw error;
         }
       },
-      async getPackProgress(pageId) {
-        const packName = mapboxPackName(pageId);
-        const cached = mapboxPackProgressByPageId.get(pageId);
+      async getPackProgress(pageId, styleKey) {
+        const packName = mapboxPackName(pageId, styleKey as MapboxStyleKey);
+        const cached = mapboxPackProgressByName.get(packName);
         if (cached !== undefined) {
           return cached;
         }
@@ -171,11 +233,12 @@ export function createMobileDownloadPlatformHarness(): DownloadPlatformHarness {
           return 0;
         }
       },
-      async deletePack(pageId) {
-        clearMapboxListener(pageId);
-        clearMapboxPackProgress(pageId);
+      async deletePack(pageId, styleKey) {
+        const packName = mapboxPackName(pageId, styleKey as MapboxStyleKey);
+        clearMapboxListener(packName);
+        clearMapboxPackProgress(packName);
         try {
-          await offlineManager.deletePack(mapboxPackName(pageId));
+          await offlineManager.deletePack(packName);
         } catch {
           // Pack may not exist.
         }

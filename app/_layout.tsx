@@ -13,10 +13,14 @@ import { ShareSheetDimmerProvider } from "@/context/ui/ShareSheetDimmerContext";
 import { SavedPagesProvider } from "@/context/data/SavedPagesContext";
 import { SavedFiltersProvider } from "@/context/data/SavedFiltersContext";
 import { DownloadJobQueueProvider } from "@/context/data/DownloadJobQueueContext";
+import { MapLayersSheetProvider } from "@/context/ui/MapLayersSheetContext";
 import { stackScreenOptions } from "@/utils/navigation/stackScreenOptions";
+import { installMapboxLoggerFilters } from "@/utils/mapbox/mapboxLogger";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StyleSheet } from "react-native";
+
+installMapboxLoggerFilters();
 
 export default function RootLayout() {
   return (
@@ -34,6 +38,7 @@ export default function RootLayout() {
                       <SavedPagesProvider>
                         <SavedFiltersProvider>
                           <DownloadJobQueueProvider>
+                            <MapLayersSheetProvider>
                             <Stack screenOptions={stackScreenOptions}>
                               <Stack.Screen
                                 name="(tabs)"
@@ -48,6 +53,7 @@ export default function RootLayout() {
                                 }}
                               />
                             </Stack>
+                            </MapLayersSheetProvider>
                           </DownloadJobQueueProvider>
                         </SavedFiltersProvider>
                       </SavedPagesProvider>

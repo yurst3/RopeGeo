@@ -18,6 +18,15 @@ import {
   type ThemePreference,
   type UnitsPreference,
 } from "./types";
+import {
+  DEFAULT_MAP_BASEMAP,
+  DEFAULT_MAP_LIGHT_PRESET,
+  DEFAULT_SHOW_SATELLITE_CONTOURS,
+  isMapBasemap,
+  isMapLightPreset,
+  type MapBasemap,
+  type MapLightPreset,
+} from "./mapLayersTypes";
 
 export type ShowRelevantContextStrengths = {
   min: RelevanceStrength;
@@ -38,6 +47,9 @@ export class Settings {
   timeMeasurementSystem: TimeMeasurementSystem;
   showRelevantContext: boolean;
   showRelevantContextStrengths: ShowRelevantContextStrengths;
+  mapBasemap: MapBasemap;
+  mapLightPreset: MapLightPreset;
+  showSatelliteContours: boolean;
 
   constructor(
     theme: ThemePreference = "Auto",
@@ -49,6 +61,9 @@ export class Settings {
     showRelevantContextStrengths: ShowRelevantContextStrengths = {
       ...DEFAULT_SHOW_RELEVANT_CONTEXT_STRENGTHS,
     },
+    mapBasemap: MapBasemap = DEFAULT_MAP_BASEMAP,
+    mapLightPreset: MapLightPreset = DEFAULT_MAP_LIGHT_PRESET,
+    showSatelliteContours: boolean = DEFAULT_SHOW_SATELLITE_CONTOURS,
   ) {
     this.theme = theme;
     this.font = font;
@@ -57,6 +72,9 @@ export class Settings {
     this.timeMeasurementSystem = timeMeasurementSystem;
     this.showRelevantContext = showRelevantContext;
     this.showRelevantContextStrengths = showRelevantContextStrengths;
+    this.mapBasemap = mapBasemap;
+    this.mapLightPreset = mapLightPreset;
+    this.showSatelliteContours = showSatelliteContours;
   }
 
   setTheme(v: ThemePreference): void {
@@ -91,6 +109,34 @@ export class Settings {
     this.showRelevantContextStrengths = Settings.assertStrengthRange(min, max);
   }
 
+  setMapBasemap(v: MapBasemap): void {
+    this.mapBasemap = v;
+  }
+
+  setMapLightPreset(v: MapLightPreset): void {
+    this.mapLightPreset = v;
+  }
+
+  setShowSatelliteContours(v: boolean): void {
+    this.showSatelliteContours = v;
+  }
+
+  resetMapLayers(): void {
+    this.mapBasemap = DEFAULT_MAP_BASEMAP;
+    this.mapLightPreset = DEFAULT_MAP_LIGHT_PRESET;
+    this.showSatelliteContours = DEFAULT_SHOW_SATELLITE_CONTOURS;
+  }
+
+  applyMapLayersDraft(draft: {
+    mapBasemap: MapBasemap;
+    mapLightPreset: MapLightPreset;
+    showSatelliteContours: boolean;
+  }): void {
+    this.mapBasemap = draft.mapBasemap;
+    this.mapLightPreset = draft.mapLightPreset;
+    this.showSatelliteContours = draft.showSatelliteContours;
+  }
+
   toJSON(): Record<string, unknown> {
     return {
       theme: this.theme,
@@ -100,6 +146,9 @@ export class Settings {
       timeMeasurementSystem: this.timeMeasurementSystem,
       showRelevantContext: this.showRelevantContext,
       showRelevantContextStrengths: this.showRelevantContextStrengths,
+      mapBasemap: this.mapBasemap,
+      mapLightPreset: this.mapLightPreset,
+      showSatelliteContours: this.showSatelliteContours,
     };
   }
 
@@ -132,6 +181,9 @@ export class Settings {
       Settings.parseTimeMeasurementSystem(o.timeMeasurementSystem),
       Settings.parseShowRelevantContext(o.showRelevantContext),
       Settings.parseShowRelevantContextStrengths(o.showRelevantContextStrengths),
+      Settings.parseMapBasemap(o.mapBasemap),
+      Settings.parseMapLightPreset(o.mapLightPreset),
+      Settings.parseShowSatelliteContours(o.showSatelliteContours),
     );
   }
 
@@ -201,6 +253,24 @@ export class Settings {
       );
     }
     return Settings.assertStrengthRange(o.min, o.max);
+  }
+
+  private static parseShowSatelliteContours(v: unknown): boolean {
+    if (v === undefined) return DEFAULT_SHOW_SATELLITE_CONTOURS;
+    if (typeof v === "boolean") return v;
+    throw new Error(`Invalid Settings.showSatelliteContours: ${JSON.stringify(v)}`);
+  }
+
+  private static parseMapBasemap(v: unknown): MapBasemap {
+    if (v === undefined) return DEFAULT_MAP_BASEMAP;
+    if (isMapBasemap(v)) return v;
+    throw new Error(`Invalid Settings.mapBasemap: ${JSON.stringify(v)}`);
+  }
+
+  private static parseMapLightPreset(v: unknown): MapLightPreset {
+    if (v === undefined) return DEFAULT_MAP_LIGHT_PRESET;
+    if (isMapLightPreset(v)) return v;
+    throw new Error(`Invalid Settings.mapLightPreset: ${JSON.stringify(v)}`);
   }
 
   private static assertStrengthRange(

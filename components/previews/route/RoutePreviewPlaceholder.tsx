@@ -11,6 +11,7 @@ import {
   ROUTE_PREVIEW_CARD_PADDING,
   useRoutePreviewMetrics,
 } from "@/utils/layout/routePreviewLayout";
+import { standardButtonShadowStyle } from "@/utils/theme/standardButtonShadow";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -29,7 +30,7 @@ export function RoutePreviewPlaceholder({
   const metrics = useRoutePreviewMetrics();
   const uiScale = useUiScale();
   const style = useTextStyle();
-  const { text, image, background, placeholder, loadingIndicator } = themeColors;
+  const { text, image, background, placeholder, loadingIndicator, button } = themeColors;
   const isError = errorMessage != null && errorMessage !== "";
 
   return (
@@ -41,13 +42,19 @@ export function RoutePreviewPlaceholder({
       >
         <View
           style={[
-            styles.card,
-            {
-              width: metrics.cardWidth,
-              backgroundColor: background,
-            },
+            styles.cardShadow,
+            standardButtonShadowStyle(button.shadowColor),
+            { width: metrics.cardWidth },
           ]}
         >
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: background,
+              },
+            ]}
+          >
           <View style={styles.cardContent}>
             <View
               style={[
@@ -138,6 +145,7 @@ export function RoutePreviewPlaceholder({
             </View>
           </View>
         </View>
+        </View>
       </BadgeLayoutProvider>
     </View>
   );
@@ -147,6 +155,9 @@ const styles = StyleSheet.create({
   outer: {
     paddingHorizontal: ROUTE_PREVIEW_CARD_MARGIN_H,
     marginBottom: 8,
+  },
+  cardShadow: {
+    borderRadius: ROUTE_PREVIEW_CARD_BORDER_RADIUS,
   },
   card: {
     borderRadius: ROUTE_PREVIEW_CARD_BORDER_RADIUS,

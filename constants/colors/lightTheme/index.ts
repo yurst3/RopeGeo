@@ -78,14 +78,6 @@ export const lightTheme: ThemeColors = {
     iconHighlight: "#4ade80",
   },
   map: {
-    marker: {
-      defaultIcon: "#000000",
-      clusterIcon: "#000000",
-      text: "#000000",
-      textHalo: "#ffffff",
-    },
-    unfocusedLineSegment: "#6b7280",
-    focusedLineSegment: "#000000", // Default for uncolored line segments, overriden if the segment has a "strokeColor" property in its map data
     minimap: {
       title: {
         background: "#ffffff",

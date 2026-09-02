@@ -1,5 +1,12 @@
+import {
+  MAPBOX_TRAILS_ABOVE_LAYER_ID,
+  MAPBOX_TRAILS_LINE_LAYER_IDS,
+} from "@/constants/mapbox";
+import {
+  EXPLORE_TRAIL_LINE_COLORS,
+  EXPLORE_TRAIL_LINE_EMISSIVE_STRENGTH,
+} from "@/utils/map/exploreTrailLineColors";
 import { trailVectorLineStyle } from "@/utils/minimap/trailVectorLineStyle";
-import { useColorTheme } from "@/context/theme/ColorThemeContext";
 import { LineLayer, VectorSource, type LineLayerStyle } from "@rnmapbox/maps";
 import { useMemo } from "react";
 
@@ -18,8 +25,6 @@ const TRAILS_SOURCE_LAYER_ID = "trails";
 const MATCH_NOTHING_FILTER = ["==", ["get", "id"], ""] as const;
 
 export const UNFOCUSED_ROUTE_LINE_WIDTH = 2;
-export const UNFOCUSED_ROUTE_LINE_OPACITY = 0.65;
-const UNFOCUSED_ROUTE_LINE_DASHARRAY: number[] = [2, 2];
 
 export type TrailsLayerProps = {
   /** When null, no trails are shown. When set, only trails whose id is in visibleTrailIds are shown. */
@@ -36,21 +41,20 @@ export function TrailsLayer({
   focusedRouteId,
   visibleTrailIds,
 }: TrailsLayerProps) {
-  const { map } = useColorTheme();
   const unfocusedTrailLineStyle = useMemo(
     (): LineLayerStyle => ({
-      lineColor: map.unfocusedLineSegment,
+      lineColor: EXPLORE_TRAIL_LINE_COLORS.unfocused,
       lineWidth: UNFOCUSED_ROUTE_LINE_WIDTH,
-      lineOpacity: UNFOCUSED_ROUTE_LINE_OPACITY,
-      lineDasharray: UNFOCUSED_ROUTE_LINE_DASHARRAY,
+      lineOpacity: 1,
+      lineEmissiveStrength: EXPLORE_TRAIL_LINE_EMISSIVE_STRENGTH,
       lineCap: "round",
       lineJoin: "round",
     }),
-    [map.unfocusedLineSegment],
+    [],
   );
   const focusedTrailLineStyle = useMemo(
-    () => trailVectorLineStyle(map.focusedLineSegment),
-    [map.focusedLineSegment],
+    () => trailVectorLineStyle(EXPLORE_TRAIL_LINE_COLORS.focused),
+    [],
   );
   const isFocused = focusedRouteId != null;
   const hasIdsToShow = visibleTrailIds.length > 0;
@@ -71,17 +75,21 @@ export function TrailsLayer({
       : (["!=", ["get", "id"], ""] as const);
   const unfocusedFilter = ["all", lineOnly, unfocusedTrailFilter] as const;
 
+  const [unfocusedLayerId, focusedLayerId] = MAPBOX_TRAILS_LINE_LAYER_IDS;
+
   return (
     <VectorSource id="trails-source" tileUrlTemplates={TRAILS_TILE_URL_TEMPLATES}>
       <LineLayer
-        id="trails-line-layer-unfocused"
+        id={unfocusedLayerId}
         sourceLayerID={TRAILS_SOURCE_LAYER_ID}
+        aboveLayerID={MAPBOX_TRAILS_ABOVE_LAYER_ID}
         filter={unfocusedFilter}
         style={unfocusedTrailLineStyle}
       />
       <LineLayer
-        id="trails-line-layer-focused"
+        id={focusedLayerId}
         sourceLayerID={TRAILS_SOURCE_LAYER_ID}
+        aboveLayerID={unfocusedLayerId}
         filter={focusedFilter}
         style={focusedTrailLineStyle}
       />

@@ -1,4 +1,9 @@
 import { ButtonStack } from "@/components/buttons/ButtonStack";
+import { MapLayersButton } from "@/components/buttons/standard/MapLayersButton";
+import { MapStyleLayers } from "@/components/mapLayers/MapStyleLayers";
+import { useMapLayersSheet } from "@/context/ui/MapLayersSheetContext";
+import { useMapLayersSettings } from "@/hooks/map/useMapLayersSettings";
+import { useMapStyleLoadGate } from "@/hooks/map/useMapStyleLoadGate";
 import { ResetCameraOrientationButton } from "@/components/buttons/standard/ResetCameraOrientationButton";
 import { ResetCameraToBoundsButton } from "@/components/buttons/standard/ResetCameraToBoundsButton";
 import { ResetCameraToPositionButton } from "@/components/buttons/standard/ResetCameraToPositionButton";
@@ -25,7 +30,6 @@ import {
   MINIMAP_FIT_BOUNDS_ANIMATION_MS,
   minimapStyles,
 } from "./shared/minimapShared";
-import { MAPBOX_STYLE_URL } from "@/constants/mapbox";
 import { useMiniMapShell } from "@/components/minimap/miniMapAnimatedCard";
 import type { MiniMapReloadRegisterRef } from "@/utils/minimap/miniMapHandle";
 import { useMiniMapViewportCameraOnLayout } from "@/utils/minimap/useMiniMapViewportCameraOnLayout";
@@ -85,6 +89,14 @@ export function RegionMiniMapView({
   reloadRegisterRef,
 }: RegionMiniMapViewProps) {
   const shell = useMiniMapShell();
+  const mapLayers = useMapLayersSettings();
+  const {
+    styleReady,
+    onDidFinishLoadingMap: onStyleReady,
+    onDidFinishLoadingStyle: onStyleFinishedLoading,
+    onMapLoadingError: onStyleLoadError,
+  } = useMapStyleLoadGate(mapLayers.styleUrl);
+  const { openMapLayersSheet } = useMapLayersSheet();
   const headerChrome = useHeaderChromeLayout();
   const mapChrome = useMapButtonChromeLayout();
   const tabBarHeight = useBottomTabBarHeight();
@@ -306,8 +318,8 @@ export function RegionMiniMapView({
   return (
     <>
       {shell.mapBodyVisible ? (
-        <MapView
-          styleURL={MAPBOX_STYLE_URL}
+          <MapView
+          styleURL={mapLayers.styleUrl}
           style={minimapStyles.map}
           projection="globe"
           onLayout={onMapLayout}
@@ -319,6 +331,7 @@ export function RegionMiniMapView({
           scaleBarEnabled={false}
           attributionEnabled={shell.expanded}
           logoEnabled={shell.expanded}
+          requestDisallowInterceptTouchEvent
           logoPosition={Platform.OS === "android" ? { bottom: 40, left: 10 } : undefined}
           attributionPosition={Platform.OS === "android" ? { bottom: 40, right: 10 } : undefined}
           onPress={() => {
@@ -327,6 +340,9 @@ export function RegionMiniMapView({
             setCurrentPreview(null);
           }}
           onCameraChanged={onCameraChangedWrapped}
+          onDidFinishLoadingMap={onStyleReady}
+          onDidFinishLoadingStyle={onStyleFinishedLoading}
+          onMapLoadingError={onStyleLoadError}
         >
           <LocationPuck
             puckBearingEnabled
@@ -347,7 +363,22 @@ export function RegionMiniMapView({
                 : undefined
             }
           />
+          {styleReady ? (
+            <>
+              <MapStyleLayers
+                lightPreset={mapLayers.mapLightPreset}
+                showElevationContours={mapLayers.showContoursOnMap}
+              />
+              <TrailsLayer
+                focusedRouteId={shell.expanded ? focusedRouteId : null}
+                visibleTrailIds={
+                  shell.expanded && currentPreview?.mapData != null ? [currentPreview.mapData] : []
+                }
+              />
+            </>
+          ) : null}
           <RouteMarkersLayer
+            mapLayersReady={styleReady}
             routesParams={regionRoutesParams}
             onStateChange={handleRoutesStateChange}
             cameraRef={cameraRef}
@@ -363,12 +394,6 @@ export function RegionMiniMapView({
               setFocusedRouteId(null);
               setCurrentPreview(null);
             }}
-          />
-          <TrailsLayer
-            focusedRouteId={shell.expanded ? focusedRouteId : null}
-            visibleTrailIds={
-              shell.expanded && currentPreview?.mapData != null ? [currentPreview.mapData] : []
-            }
           />
         </MapView>
       ) : null}
@@ -413,6 +438,13 @@ export function RegionMiniMapView({
             }}
           />
           <ButtonStack top={buttonStackTop}>
+            <ButtonStack.Slot id="map-layers" visible>
+              <MapLayersButton
+                stacked
+                customized={mapLayers.customized}
+                onPress={openMapLayersSheet}
+              />
+            </ButtonStack.Slot>
             <ButtonStack.Slot id="bounds" visible={boundsResetButtonVisible}>
               <ResetCameraToBoundsButton
                 stacked
