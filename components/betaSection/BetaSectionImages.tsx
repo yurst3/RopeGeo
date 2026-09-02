@@ -22,7 +22,7 @@ import type {
 } from "ropegeo-common/models";
 import { ConstantText } from "@/components/text/ConstantText";
 import { AttributionAuthorsText } from "@/components/attribution/AttributionAuthorsText";
-import { ExpandedImageModal } from "@/components/expandedImage/ExpandedImageModal";
+import { ExpandedImageModal } from "@/components/modals/expandedImage/ExpandedImageModal";
 import { useTextStyle, useText } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
 import type {

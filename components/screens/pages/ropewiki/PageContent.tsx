@@ -16,13 +16,13 @@ import {
   useResolvedConstantSize,
 } from "@/utils/theme/resolvers";
 import { useFabulousTitle } from "@/utils/theme/useFabulousTitle";
-import { MiniMap, type MiniMapProps } from "@/components/minimap/MiniMap";
+import { MiniMap, type MiniMapProps } from "@/components/modals/minimap/MiniMap";
 import {
   isCenteredRegionMiniMapType,
   isPageMiniMapType,
   MINI_MAP_BORDER_RADIUS,
   MINI_MAP_EXPANDED_Z_INDEX,
-} from "@/components/minimap/shared/minimapShared";
+} from "@/components/modals/minimap/shared/minimapShared";
 import { RegionLinks } from "@/components/screens/pages/ropewiki/RegionLinks";
 import { RappelInfoRow } from "@/components/screens/pages/ropewiki/RappelInfoRow";
 import { StarRating } from "@/components/starRating/StarRating";

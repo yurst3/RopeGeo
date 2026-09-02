@@ -1,4 +1,4 @@
-import { type FilterSheetMode } from "@/components/filters/FilterBottomSheet";
+import { type FilterSheetMode } from "@/components/modals/FilterBottomSheet";
 import { TOAST_KEY_DISTANCE_GPS_TIMEOUT } from "@/constants/toasts/toastArchetypes";
 import {
   ToastKeyCollisionError,

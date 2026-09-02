@@ -7,7 +7,7 @@ import { useResolvedButtonDimensions } from "@/utils/theme/resolvers";
 import {
   EXPAND_BUTTON_SIZE,
   minimapStyles,
-} from "@/components/minimap/shared/minimapShared";
+} from "@/components/modals/minimap/shared/minimapShared";
 
 
 type ExpandMiniMapButtonProps = {

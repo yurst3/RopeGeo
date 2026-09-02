@@ -1,15 +1,15 @@
 import type { RoutesState } from "@/components/screens/explore/RouteMarkersLayer";
-import { CenteredRegionMiniMapView } from "@/components/minimap/CenteredRegionMiniMapView";
+import { CenteredRegionMiniMapView } from "@/components/modals/minimap/CenteredRegionMiniMapView";
 import {
   PageMiniMapView,
   type PageMiniMapTileProps,
-} from "@/components/minimap/PageMiniMapView";
+} from "@/components/modals/minimap/PageMiniMapView";
 import {
   MiniMapAnimatedCard,
-} from "@/components/minimap/miniMapAnimatedCard";
-import { PlaceholderMiniMap } from "@/components/minimap/PlaceholderMiniMap";
-import { RegionMiniMapView } from "@/components/minimap/RegionMiniMapView";
-import { minimapStyles } from "@/components/minimap/shared/minimapShared";
+} from "@/components/modals/minimap/miniMapAnimatedCard";
+import { PlaceholderMiniMap } from "@/components/modals/minimap/PlaceholderMiniMap";
+import { RegionMiniMapView } from "@/components/modals/minimap/RegionMiniMapView";
+import { minimapStyles } from "@/components/modals/minimap/shared/minimapShared";
 import { forwardRef, useImperativeHandle, useRef, type RefObject } from "react";
 import type { MiniMapHandle, MiniMapReloadRegisterRef } from "@/utils/minimap/miniMapHandle";
 import { View } from "react-native";

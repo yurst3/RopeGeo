@@ -1,5 +1,5 @@
 import { BackButton } from "@/components/buttons/standard/BackButton";
-import { ExpandedImageModal } from "@/components/expandedImage/ExpandedImageModal";
+import { ExpandedImageModal } from "@/components/modals/expandedImage/ExpandedImageModal";
 import type { ExpandedImageAnchorRect, ExpandedImageGalleryPage } from "@/utils/expandedImage/types";
 import { RegionBanner, type RegionBannerHandle } from "./RegionBanner";
 import { RegionContent } from "./RegionContent";

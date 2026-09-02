@@ -1,5 +1,5 @@
 import { useColorTheme } from "@/context/theme/ColorThemeContext";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Dimensions,
   KeyboardAvoidingView,
@@ -19,6 +19,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
   type WithSpringConfig,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,12 +29,12 @@ import {
   SearchFilter,
   type SearchParamsPosition,
 } from "ropegeo-common/models";
-import { DifficultyFilterOptions } from "./DifficultyFilterOptions";
-import { RoutesFilterOptions } from "./RoutesFilterOptions";
+import { DifficultyFilterOptions } from "@/components/filters/DifficultyFilterOptions";
+import { RoutesFilterOptions } from "@/components/filters/RoutesFilterOptions";
 import {
   SavedPagesFilterOptions,
-} from "./SavedPagesFilterOptions";
-import { SearchFilterOptions } from "./SearchFilterOptions";
+} from "@/components/filters/SavedPagesFilterOptions";
+import { SearchFilterOptions } from "@/components/filters/SearchFilterOptions";
 import { FILTER_SHEET_HORIZONTAL_INSET } from "@/utils/filters/filterSheetInsets";
 
 const SHEET_MAX_HEIGHT_RATIO = 0.88;
@@ -109,19 +110,37 @@ export function FilterBottomSheet({
   const uiScale = useUiScale();
   const textStyle = useTextStyle();
   const insets = useSafeAreaInsets();
-  const translateY = useSharedValue(400);
+  const windowHeight = Dimensions.get("window").height;
+  const dismissOffset = windowHeight;
+  const translateY = useSharedValue(dismissOffset);
+  const overlayOpacity = useSharedValue(0);
+  const isClosingRef = useRef(false);
+
+  const dismissSheet = useCallback(() => {
+    if (isClosingRef.current) {
+      return;
+    }
+    isClosingRef.current = true;
+    overlayOpacity.value = withTiming(0, { duration: 180 });
+    translateY.value = withSpring(dismissOffset, SHEET_SPRING, (finished) => {
+      if (finished) {
+        runOnJS(onClose)();
+      }
+    });
+  }, [dismissOffset, onClose, overlayOpacity, translateY]);
 
   useEffect(() => {
     if (visible) {
+      isClosingRef.current = false;
+      translateY.value = dismissOffset;
+      overlayOpacity.value = 0;
+      overlayOpacity.value = withTiming(1, { duration: 200 });
       translateY.value = withSpring(0, SHEET_SPRING);
     } else {
-      translateY.value = 400;
+      translateY.value = dismissOffset;
+      overlayOpacity.value = 0;
     }
-  }, [visible, translateY]);
-
-  const closeSheet = useCallback(() => {
-    onClose();
-  }, [onClose]);
+  }, [dismissOffset, overlayOpacity, translateY, visible]);
 
   const pan = useMemo(
     () =>
@@ -129,28 +148,31 @@ export function FilterBottomSheet({
         .onUpdate((e) => {
           if (e.translationY > 0) {
             translateY.value = e.translationY;
+            overlayOpacity.value = Math.max(0, 1 - e.translationY / 200);
           }
         })
         .onEnd((e) => {
           if (e.translationY > 80 || e.velocityY > 800) {
-            translateY.value = withSpring(400, SHEET_SPRING, () =>
-              runOnJS(closeSheet)(),
-            );
+            runOnJS(dismissSheet)();
           } else {
+            overlayOpacity.value = withTiming(1, { duration: 150 });
             translateY.value = withSpring(0, SHEET_SPRING);
           }
         }),
-    [closeSheet, translateY],
+    [dismissSheet, overlayOpacity, translateY],
   );
 
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
   }));
 
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: overlayOpacity.value,
+  }));
+
   const maxH = useMemo(
-    () =>
-      Math.round(Dimensions.get("window").height * SHEET_MAX_HEIGHT_RATIO),
-    [],
+    () => Math.round(windowHeight * SHEET_MAX_HEIGHT_RATIO),
+    [windowHeight],
   );
 
   if (mode == null) return null;
@@ -180,11 +202,12 @@ export function FilterBottomSheet({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      animationType="none"
+      onRequestClose={dismissSheet}
     >
-      <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <View style={styles.overlayContainer}>
+        <Animated.View style={[styles.overlay, overlayStyle]} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={dismissSheet} />
         <Animated.View
           style={[
             styles.sheet,
@@ -208,68 +231,68 @@ export function FilterBottomSheet({
               </ConstantText>
             </View>
           </GestureDetector>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : undefined}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={{ maxHeight: scrollAreaMaxHeight }}
+          >
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.scrollPad}
               style={{ maxHeight: scrollAreaMaxHeight }}
+              showsVerticalScrollIndicator
             >
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.scrollPad}
-                style={{ maxHeight: scrollAreaMaxHeight }}
-                showsVerticalScrollIndicator
-              >
-                {mode.kind === "explore-route" || mode.kind === "region-route" ? (
-                  <RouteFilterForm
-                    filter={mode.draft}
-                    onChange={mode.onDraftChange}
-                  />
-                ) : null}
-                {mode.kind === "search" ? (
-                  <SearchFilterForm
-                    filter={mode.draft}
-                    livePosition={mode.livePosition}
-                    onChange={mode.onDraftChange}
-                  />
-                ) : null}
-                {mode.kind === "saved-pages" ? (
-                  <SavedPagesFilterForm
-                    filter={mode.draft}
-                    onChange={mode.onDraftChange}
-                  />
-                ) : null}
-              </ScrollView>
-            </KeyboardAvoidingView>
-            {showFooter ? (
-              <View
-                style={[
-                  styles.footer,
-                  { borderTopColor: separator },
-                ]}
-              >
-                {mode.kind === "region-route" ? (
-                  <Pressable style={styles.secondaryBtn} onPress={mode.onReset}>
-                    <ConstantText
-                      size={uiScale.filter.buttons.revert.text!}
-                      typography={textStyle.filter.revertButton}
-                      style={{ color: filter.revertText }}
-                    >
-                      Reset
-                    </ConstantText>
-                  </Pressable>
-                ) : null}
-                {showRevert ? (
-                  <Pressable style={styles.secondaryBtn} onPress={handleRevert}>
-                    <ConstantText
-                      size={uiScale.filter.buttons.revert.text!}
-                      typography={textStyle.filter.revertButton}
-                      style={{ color: filter.revertText }}
-                    >
-                      Revert to defaults
-                    </ConstantText>
-                  </Pressable>
-                ) : null}
-              </View>
-            ) : null}
+              {mode.kind === "explore-route" || mode.kind === "region-route" ? (
+                <RouteFilterForm
+                  filter={mode.draft}
+                  onChange={mode.onDraftChange}
+                />
+              ) : null}
+              {mode.kind === "search" ? (
+                <SearchFilterForm
+                  filter={mode.draft}
+                  livePosition={mode.livePosition}
+                  onChange={mode.onDraftChange}
+                />
+              ) : null}
+              {mode.kind === "saved-pages" ? (
+                <SavedPagesFilterForm
+                  filter={mode.draft}
+                  onChange={mode.onDraftChange}
+                />
+              ) : null}
+            </ScrollView>
+          </KeyboardAvoidingView>
+          {showFooter ? (
+            <View
+              style={[
+                styles.footer,
+                { borderTopColor: separator },
+              ]}
+            >
+              {mode.kind === "region-route" ? (
+                <Pressable style={styles.secondaryBtn} onPress={mode.onReset}>
+                  <ConstantText
+                    size={uiScale.filter.buttons.revert.text!}
+                    typography={textStyle.filter.revertButton}
+                    style={{ color: filter.revertText }}
+                  >
+                    Reset
+                  </ConstantText>
+                </Pressable>
+              ) : null}
+              {showRevert ? (
+                <Pressable style={styles.secondaryBtn} onPress={handleRevert}>
+                  <ConstantText
+                    size={uiScale.filter.buttons.revert.text!}
+                    typography={textStyle.filter.revertButton}
+                    style={{ color: filter.revertText }}
+                  >
+                    Revert to defaults
+                  </ConstantText>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
         </Animated.View>
       </View>
     </Modal>
@@ -359,10 +382,13 @@ function SavedPagesFilterForm({
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  overlayContainer: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "flex-end",
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
   sheet: {
     borderTopLeftRadius: 16,

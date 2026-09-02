@@ -3,7 +3,7 @@ import { ConstantText } from "@/components/text/ConstantText";
 import { useColorTheme } from "@/context/theme/ColorThemeContext";
 import { useTextStyle } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
-import { MiniMap } from "@/components/minimap/MiniMap";
+import { MiniMap } from "@/components/modals/minimap/MiniMap";
 import type { RoutesState } from "@/components/screens/explore/RouteMarkersLayer";
 import { useNetworkStatus } from "@/context/app/NetworkStatusContext";
 import { RegionLinks } from "@/components/screens/pages/ropewiki/RegionLinks";
@@ -23,7 +23,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   MINI_MAP_BORDER_RADIUS,
   MINI_MAP_EXPANDED_Z_INDEX,
-} from "@/components/minimap/shared/minimapShared";
+} from "@/components/modals/minimap/shared/minimapShared";
 import {
   ActivityIndicator,
   Dimensions,

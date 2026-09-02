@@ -1,5 +1,5 @@
 import { SearchBar } from "@/components/search/SearchBar";
-import { FilterBottomSheet } from "@/components/filters/FilterBottomSheet";
+import { FilterBottomSheet } from "@/components/modals/FilterBottomSheet";
 import { FilterButton } from "@/components/buttons/standard/FilterButton";
 import { PagePreview } from "@/components/previews/PagePreview";
 import { TOAST_KEY_NETWORK_OFFLINE } from "@/constants/toasts/toastArchetypes";

@@ -1,9 +1,9 @@
 import { ConstantText } from "@/components/text/ConstantText";
 import { ScalingText } from "@/components/text/ScalingText";
-import { ExpandedImageModal } from "@/components/expandedImage/ExpandedImageModal";
-import { RelevanceStrengthPill } from "@/components/minimap/panels/RelevanceStrengthPill";
-import { HiddenRelevantInfoPill } from "@/components/minimap/panels/HiddenRelevantInfoPill";
-import { MeasurementContextPill } from "@/components/minimap/panels/MeasurementContextPill";
+import { ExpandedImageModal } from "@/components/modals/expandedImage/ExpandedImageModal";
+import { RelevanceStrengthPill } from "@/components/modals/minimap/panels/RelevanceStrengthPill";
+import { HiddenRelevantInfoPill } from "@/components/modals/minimap/panels/HiddenRelevantInfoPill";
+import { MeasurementContextPill } from "@/components/modals/minimap/panels/MeasurementContextPill";
 import { ROPEWIKI_ORIGIN } from "@/constants/ropewikiOrigin";
 import { useColorTheme } from "@/context/theme/ColorThemeContext";
 import { useTextStyle, useText } from "@/context/typography/TextContext";

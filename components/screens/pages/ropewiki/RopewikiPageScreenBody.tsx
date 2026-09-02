@@ -6,7 +6,7 @@ import { useDownloadJobQueue } from "@/context/data/DownloadJobQueueContext";
 import { useSavedTabHighlight } from "@/context/ui/SavedTabHighlightContext";
 import { useSavedPages } from "@/context/data/SavedPagesContext";
 import { useShareSheetDimmer } from "@/context/ui/ShareSheetDimmerContext";
-import { ExpandedImageModal } from "@/components/expandedImage/ExpandedImageModal";
+import { ExpandedImageModal } from "@/components/modals/expandedImage/ExpandedImageModal";
 import type { ExpandedImageAnchorRect } from "@/utils/expandedImage/types";
 import { PageBanner } from "./PageBanner";
 import { PageContent as PageScrollContent } from "./PageContent";

@@ -1,6 +1,6 @@
 import { ButtonStack } from "@/components/buttons/ButtonStack";
 import { MapLayersButton } from "@/components/buttons/standard/MapLayersButton";
-import { MapStyleLayers } from "@/components/mapLayers/MapStyleLayers";
+import { MapStyleLayers } from "@/components/modals/mapLayers/MapStyleLayers";
 import { useMapLayersSheet } from "@/context/ui/MapLayersSheetContext";
 import { useMapOverlayColors } from "@/hooks/map/useMapOverlayColors";
 import { useMapLayersSettings } from "@/hooks/map/useMapLayersSettings";
@@ -40,7 +40,7 @@ import {
   MINIMAP_FIT_BOUNDS_ANIMATION_MS,
   minimapStyles,
 } from "./shared/minimapShared";
-import { useMiniMapShell } from "@/components/minimap/miniMapAnimatedCard";
+import { useMiniMapShell } from "@/components/modals/minimap/miniMapAnimatedCard";
 import type { MiniMapReloadRegisterRef } from "@/utils/minimap/miniMapHandle";
 import { useMiniMapViewportCameraOnLayout } from "@/utils/minimap/useMiniMapViewportCameraOnLayout";
 import { useMiniMapCamera } from "@/utils/minimap/useMiniMapCamera";

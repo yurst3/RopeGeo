@@ -1,7 +1,7 @@
 import { Camera } from "@rnmapbox/maps";
 import type { ComponentRef } from "react";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { MINIMAP_FIT_BOUNDS_ANIMATION_MS } from "@/components/minimap/shared/minimapShared";
+import { MINIMAP_FIT_BOUNDS_ANIMATION_MS } from "@/components/modals/minimap/shared/minimapShared";
 
 type Bounds = { north: number; south: number; east: number; west: number };
 type Padding = { paddingTop: number; paddingBottom: number; paddingLeft: number; paddingRight: number };

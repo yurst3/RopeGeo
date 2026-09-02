@@ -15,7 +15,7 @@ import {
   MINI_MAP_BORDER_RADIUS,
   MINI_MAP_COLLAPSED_Z_INDEX,
   MINI_MAP_EXPANDED_Z_INDEX,
-} from "@/components/minimap/shared/minimapShared";
+} from "@/components/modals/minimap/shared/minimapShared";
 
 export type Rect = { x: number; y: number; width: number; height: number };
 

@@ -1,4 +1,4 @@
-import { MapLayersBottomSheet } from "@/components/mapLayers/MapLayersBottomSheet";
+import { MapLayersBottomSheet } from "@/components/modals/mapLayers/MapLayersBottomSheet";
 import { Settings } from "@/constants/settings";
 import { useSettings } from "@/context/app/SettingsContext";
 import {

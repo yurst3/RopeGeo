@@ -4,7 +4,7 @@ import {
   MAPBOX_STYLE_URLS,
 } from "@/constants/mapbox";
 import type { MapBasemap, MapLightPreset } from "@/constants/settings/mapLayersTypes";
-import { MapStyleImport, ElevationContourLayers } from "@/components/mapLayers/MapStyleLayers";
+import { MapStyleImport, ElevationContourLayers } from "@/components/modals/mapLayers/MapStyleLayers";
 import { Camera, MapView } from "@rnmapbox/maps";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";

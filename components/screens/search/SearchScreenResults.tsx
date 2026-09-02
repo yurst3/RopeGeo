@@ -1,4 +1,4 @@
-import { FilterBottomSheet, type FilterSheetMode } from "@/components/filters/FilterBottomSheet";
+import { FilterBottomSheet, type FilterSheetMode } from "@/components/modals/FilterBottomSheet";
 import { useNetworkRequestToasts } from "@/utils/toast/useNetworkRequestToasts";
 import { useSearchChromeStackedLayout, useToastChromeLayout } from "@/utils/layout/buttonChromeLayout";
 import {

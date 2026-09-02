@@ -1,4 +1,4 @@
-import { MapBasemapPreview } from "@/components/mapLayers/MapBasemapPreview";
+import { MapBasemapPreview } from "@/components/modals/mapLayers/MapBasemapPreview";
 import { ConstantText } from "@/components/text/ConstantText";
 import { ScaledFilterSwitch } from "@/components/filters/ScaledFilterSwitch";
 import { OptionChip } from "@/components/settings/OptionChip";

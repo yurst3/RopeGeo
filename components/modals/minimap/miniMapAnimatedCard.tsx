@@ -2,12 +2,12 @@ import { ExpandMiniMapButton } from "@/components/buttons/standard/ExpandMiniMap
 import {
   MiniMapDirectionsButtons,
   minimapStyles,
-} from "@/components/minimap/shared/minimapShared";
+} from "@/components/modals/minimap/shared/minimapShared";
 import {
   type MiniMapExpandLayout,
   useMiniMapAnimation,
 } from "@/utils/minimap/useMiniMapAnimation";
-import { PlaceholderMiniMap } from "@/components/minimap/PlaceholderMiniMap";
+import { PlaceholderMiniMap } from "@/components/modals/minimap/PlaceholderMiniMap";
 import { useUiScaleProfileKey } from "@/context/typography/UIScaleContext";
 import {
   createContext,

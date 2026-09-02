@@ -1,6 +1,6 @@
 import { ButtonStack } from "@/components/buttons/ButtonStack";
 import { MapLayersButton } from "@/components/buttons/standard/MapLayersButton";
-import { MapStyleLayers } from "@/components/mapLayers/MapStyleLayers";
+import { MapStyleLayers } from "@/components/modals/mapLayers/MapStyleLayers";
 import { useMapLayersSheet } from "@/context/ui/MapLayersSheetContext";
 import { useMapOverlayColors } from "@/hooks/map/useMapOverlayColors";
 import { useMapLayersSettings } from "@/hooks/map/useMapLayersSettings";
@@ -51,7 +51,7 @@ import { useColorTheme } from "@/context/theme/ColorThemeContext";
 import { useTextStyle } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
 import { trailVectorLineStyle } from "@/utils/minimap/trailVectorLineStyle";
-import { useMiniMapShell } from "@/components/minimap/miniMapAnimatedCard";
+import { useMiniMapShell } from "@/components/modals/minimap/miniMapAnimatedCard";
 import type { MiniMapReloadRegisterRef } from "@/utils/minimap/miniMapHandle";
 import { useMiniMapViewportCameraOnLayout } from "@/utils/minimap/useMiniMapViewportCameraOnLayout";
 import { useMiniMapCamera } from "@/utils/minimap/useMiniMapCamera";
