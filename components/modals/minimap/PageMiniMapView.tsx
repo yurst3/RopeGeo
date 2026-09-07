@@ -41,6 +41,10 @@ import {
   lineSelectionStyle,
 } from "@/utils/minimap/pageMiniMapSegments";
 import {
+  MiniMapNativeGestureHost,
+  miniMapInteractionProps,
+} from "./shared/miniMapMapGestures";
+import {
   CAMERA_PADDING,
   MINIMAP_FIT_BOUNDS_ANIMATION_MS,
   minimapStyles,
@@ -1013,22 +1017,18 @@ export function PageMiniMapView({
           style={minimapStyles.map}
           pointerEvents={shell.expanded ? "auto" : "none"}
         >
+          <MiniMapNativeGestureHost expanded={shell.expanded}>
           <MapView
             key={`${miniMapReloadKey}:offline-prepared`}
             ref={mapRef}
             styleURL={mapLayers.styleUrl}
-            style={StyleSheet.absoluteFill}
+            style={minimapStyles.map}
             projection="globe"
             onLayout={onMapLayout}
-            pointerEvents={shell.expanded ? "auto" : "none"}
-            scrollEnabled={shell.expanded}
-            zoomEnabled={shell.expanded}
-            rotateEnabled={shell.expanded}
-            pitchEnabled={shell.expanded}
+            {...miniMapInteractionProps(shell.expanded)}
             scaleBarEnabled={false}
             attributionEnabled={shell.expanded}
             logoEnabled={shell.expanded}
-            requestDisallowInterceptTouchEvent
             logoPosition={Platform.OS === "android" ? { bottom: 40, left: 10 } : undefined}
             attributionPosition={Platform.OS === "android" ? { bottom: 40, right: 10 } : undefined}
             onCameraChanged={onCameraChangedWrapped}
@@ -1115,6 +1115,7 @@ export function PageMiniMapView({
               </>
             ) : null}
           </MapView>
+          </MiniMapNativeGestureHost>
           {shell.expanded && pointTooltip != null ? (
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
               <View

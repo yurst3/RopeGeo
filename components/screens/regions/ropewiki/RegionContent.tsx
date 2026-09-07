@@ -326,8 +326,8 @@ export function RegionContent({
               paddingBottom: 0,
               flexGrow: 1,
             }}
-            pointerEvents="auto"
-            nestedScrollEnabled
+            pointerEvents={mapExpanded ? "box-none" : "auto"}
+            nestedScrollEnabled={!mapExpanded}
             onScroll={scrollHandler}
             scrollEventThrottle={16}
             scrollEnabled={!mapExpanded}

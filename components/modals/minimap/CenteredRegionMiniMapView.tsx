@@ -37,6 +37,10 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { MiniMapHeader } from "./shared/MiniMapHeader";
 import { miniMapHostStyles } from "@/utils/minimap/miniMapHostStyles";
 import {
+  MiniMapNativeGestureHost,
+  miniMapInteractionProps,
+} from "./shared/miniMapMapGestures";
+import {
   MINIMAP_FIT_BOUNDS_ANIMATION_MS,
   minimapStyles,
 } from "./shared/minimapShared";
@@ -538,20 +542,16 @@ export function CenteredRegionMiniMapView({
   return (
     <>
       {shell.mapBodyVisible ? (
+        <MiniMapNativeGestureHost expanded={shell.expanded}>
         <MapView
           styleURL={mapLayers.styleUrl}
           style={minimapStyles.map}
           projection="globe"
           onLayout={onMapLayout}
-          pointerEvents={shell.expanded ? "auto" : "none"}
-          scrollEnabled={shell.expanded}
-          zoomEnabled={shell.expanded}
-          rotateEnabled={shell.expanded}
-          pitchEnabled={shell.expanded}
+          {...miniMapInteractionProps(shell.expanded)}
           scaleBarEnabled={false}
           attributionEnabled={shell.expanded}
           logoEnabled={shell.expanded}
-          requestDisallowInterceptTouchEvent
           logoPosition={Platform.OS === "android" ? { bottom: 40, left: 10 } : undefined}
           attributionPosition={Platform.OS === "android" ? { bottom: 40, right: 10 } : undefined}
           onPress={() => {
@@ -649,6 +649,7 @@ export function CenteredRegionMiniMapView({
             />
           ) : null}
         </MapView>
+        </MiniMapNativeGestureHost>
       ) : null}
       {shell.expanded ? (
         <Animated.View

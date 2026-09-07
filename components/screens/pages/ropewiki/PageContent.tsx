@@ -250,10 +250,11 @@ export function PageContent({
         paddingBottom: 0,
         flexGrow: 1,
       }}
-      pointerEvents="auto"
+      pointerEvents={mapExpanded ? "box-none" : "auto"}
       onScroll={onScroll}
       scrollEventThrottle={16}
       scrollEnabled={!mapExpanded}
+      nestedScrollEnabled={!mapExpanded}
       showsVerticalScrollIndicator={false}
       overScrollMode="never"
       onScrollEndDrag={handleScrollEndDrag}
