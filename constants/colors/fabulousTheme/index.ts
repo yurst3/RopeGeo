@@ -79,6 +79,7 @@ export const fabulousTheme: ThemeColors = {
   },
   map: {
     minimap: {
+      background: "#5B21B6",
       title: {
         background: "#3B0764",
         shadow: "#FACC15",

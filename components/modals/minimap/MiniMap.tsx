@@ -12,6 +12,7 @@ import { RegionMiniMapView } from "@/components/modals/minimap/RegionMiniMapView
 import { minimapStyles } from "@/components/modals/minimap/shared/minimapShared";
 import { forwardRef, useImperativeHandle, useRef, type RefObject } from "react";
 import type { MiniMapHandle, MiniMapReloadRegisterRef } from "@/utils/minimap/miniMapHandle";
+import type { MiniMapExpandLayout } from "@/utils/minimap/useMiniMapAnimation";
 import { View } from "react-native";
 import {
   MiniMapType,
@@ -33,6 +34,12 @@ type MiniMapShellProps = {
   collapsedMeasureRef: RefObject<View | null>;
   onExpand: () => void;
   onCollapse: () => void;
+  androidHost?: "inline" | "portal";
+  portalMeasureRef?: RefObject<View | null>;
+  seedExpandLayout?: MiniMapExpandLayout | null;
+  collapseAfterSeed?: boolean;
+  onAndroidExpandToPortal?: (layout: MiniMapExpandLayout) => void;
+  onAndroidCollapseToInline?: (layout: MiniMapExpandLayout) => void;
 };
 
 export type MiniMapProps = MiniMapShellProps &
@@ -71,6 +78,12 @@ export const MiniMap = forwardRef<MiniMapHandle, MiniMapProps>(function MiniMap(
     collapsedMeasureRef,
     onExpand,
     onCollapse,
+    androidHost,
+    portalMeasureRef,
+    seedExpandLayout,
+    collapseAfterSeed,
+    onAndroidExpandToPortal,
+    onAndroidCollapseToInline,
   } = props;
 
   const reloadRegisterRef: MiniMapReloadRegisterRef = useRef<(() => void) | null>(null);
@@ -92,6 +105,12 @@ export const MiniMap = forwardRef<MiniMapHandle, MiniMapProps>(function MiniMap(
     collapsedMeasureRef,
     onExpand,
     onCollapse,
+    androidHost,
+    portalMeasureRef,
+    seedExpandLayout,
+    collapseAfterSeed,
+    onAndroidExpandToPortal,
+    onAndroidCollapseToInline,
   };
 
   switch (miniMap.miniMapType) {

@@ -17,12 +17,14 @@ import {
 } from "@/utils/theme/resolvers";
 import { useFabulousTitle } from "@/utils/theme/useFabulousTitle";
 import { MiniMap, type MiniMapProps } from "@/components/modals/minimap/MiniMap";
+import { MiniMapMountLoadingOverlay } from "@/components/modals/minimap/MiniMapMountLoadingOverlay";
 import {
   isCenteredRegionMiniMapType,
   isPageMiniMapType,
   MINI_MAP_BORDER_RADIUS,
   MINI_MAP_EXPANDED_Z_INDEX,
 } from "@/components/modals/minimap/shared/minimapShared";
+import type { MiniMapExpandLayout } from "@/utils/minimap/useMiniMapAnimation";
 import { RegionLinks } from "@/components/screens/pages/ropewiki/RegionLinks";
 import { RappelInfoRow } from "@/components/screens/pages/ropewiki/RappelInfoRow";
 import { StarRating } from "@/components/starRating/StarRating";
@@ -130,16 +132,22 @@ export function PageContent({
   onDownloadPress,
   onRemoveDownloadPress,
 }: PageContentProps) {
-  const { background, text } = useColorTheme();
+  const { background, text, map } = useColorTheme();
   const uiScale = useUiScale();
   const textStyle = useTextStyle();
   const starRatingFontSize = useResolvedConstantSize(uiScale.pageScreen.text.starRating);
   const displayTitle = useFabulousTitle(data.name);
   const miniMapGateRef = useRef<View>(null);
+  const contentRootRef = useRef<View>(null);
   const miniMapUnlockedRef = useRef(false);
   const [mountMiniMapNative, setMountMiniMapNative] = useState(false);
   const [mapMode, setMapMode] = useState<"collapsed" | "expanded">("collapsed");
   const mapExpanded = mapMode === "expanded";
+  /** Android only: expand/collapse hands MapView out of ScrollView for reliable gestures. */
+  const portalHandoff = Platform.OS === "android";
+  const [androidMapHost, setAndroidMapHost] = useState<"inline" | "portal">("inline");
+  const [androidSeedLayout, setAndroidSeedLayout] = useState<MiniMapExpandLayout | null>(null);
+  const [androidCollapseAfterSeed, setAndroidCollapseAfterSeed] = useState(false);
 
   const minimapForUi = data.miniMap;
   const hasMiniMap = minimapForUi != null;
@@ -182,8 +190,48 @@ export function PageContent({
     miniMapUnlockedRef.current = false;
     setMountMiniMapNative(false);
     setMapMode("collapsed");
+    setAndroidMapHost("inline");
+    setAndroidSeedLayout(null);
+    setAndroidCollapseAfterSeed(false);
     onMapExpandedChangeRef.current?.(false);
   }, [pageId]);
+
+  const handleMiniMapCollapse = useCallback(() => {
+    setMapModeAndNotify("collapsed");
+    setAndroidMapHost("inline");
+    setAndroidSeedLayout(null);
+    setAndroidCollapseAfterSeed(false);
+  }, [setMapModeAndNotify]);
+
+  const onAndroidExpandToPortal = useCallback(
+    (layout: MiniMapExpandLayout) => {
+      setAndroidSeedLayout(layout);
+      setAndroidCollapseAfterSeed(false);
+      setAndroidMapHost("portal");
+      setMapModeAndNotify("expanded");
+    },
+    [setMapModeAndNotify],
+  );
+
+  const onAndroidCollapseToInline = useCallback((layout: MiniMapExpandLayout) => {
+    setAndroidSeedLayout(layout);
+    setAndroidCollapseAfterSeed(true);
+    setAndroidMapHost("inline");
+  }, []);
+
+  const showInlineMiniMap = !portalHandoff || androidMapHost === "inline";
+  const showPortalMiniMap = portalHandoff && androidMapHost === "portal";
+
+  const sharedMiniMapShell = {
+    mountNativeMap: mountMiniMapNative,
+    expandAnchorRef,
+    collapsedMeasureRef: miniMapGateRef,
+    portalMeasureRef: contentRootRef,
+    onExpand: () => setMapModeAndNotify("expanded"),
+    onCollapse: handleMiniMapCollapse,
+    onAndroidExpandToPortal: portalHandoff ? onAndroidExpandToPortal : undefined,
+    onAndroidCollapseToInline: portalHandoff ? onAndroidCollapseToInline : undefined,
+  } as const;
 
   const checkMiniMapInView = useCallback(() => {
     if (!hasMiniMap) return;
@@ -242,7 +290,7 @@ export function PageContent({
   const jumps = data.jumps ?? null;
 
   return (
-    <>
+    <View ref={contentRootRef} style={styles.root} collapsable={false}>
     <AnimatedScrollView
       style={[styles.scrollView, mapExpanded && styles.scrollViewMapExpanded]}
       contentContainerStyle={{
@@ -391,6 +439,7 @@ export function PageContent({
                 collapsable={false}
                 style={[
                   styles.miniMapWrap,
+                  { backgroundColor: map.minimap.background },
                   !mapExpanded && styles.miniMapWrapClip,
                   mapExpanded && styles.miniMapWrapExpanded,
                 ]}
@@ -400,23 +449,26 @@ export function PageContent({
                   });
                 }}
               >
-                <MiniMap
-                  {...({
-                    miniMap: minimapForUi,
-                    mountNativeMap: mountMiniMapNative,
-                    expanded: mapExpanded,
-                    expandAnchorRef,
-                    collapsedMeasureRef: miniMapGateRef,
-                    onExpand: () => setMapModeAndNotify("expanded"),
-                    onCollapse: () => setMapModeAndNotify("collapsed"),
-                    mapDirections: isPageMiniMapType(minimapForUi.miniMapType)
-                      ? mapDirections
-                      : centeredMiniMapDirections,
-                    ...(isPageMiniMapType(minimapForUi.miniMapType)
-                      ? { betaSectionLookup, imageLookup, measurementsLookup }
-                      : {}),
-                  } as MiniMapProps)}
-                />
+                {showInlineMiniMap && mountMiniMapNative ? (
+                  <MiniMap
+                    {...({
+                      ...sharedMiniMapShell,
+                      miniMap: minimapForUi,
+                      expanded: mapExpanded,
+                      androidHost: "inline" as const,
+                      seedExpandLayout: androidCollapseAfterSeed ? androidSeedLayout : null,
+                      collapseAfterSeed: androidCollapseAfterSeed,
+                      mapDirections: isPageMiniMapType(minimapForUi.miniMapType)
+                        ? mapDirections
+                        : centeredMiniMapDirections,
+                      ...(isPageMiniMapType(minimapForUi.miniMapType)
+                        ? { betaSectionLookup, imageLookup, measurementsLookup }
+                        : {}),
+                    } as MiniMapProps)}
+                  />
+                ) : showInlineMiniMap ? (
+                  <MiniMapMountLoadingOverlay />
+                ) : null}
               </View>
             ) : null}
             {!mapExpanded &&
@@ -453,11 +505,37 @@ export function PageContent({
         </View>
       </View>
     </AnimatedScrollView>
-    </>
+    {showPortalMiniMap && hasMiniMap && minimapForUi != null ? (
+      <View
+        style={styles.miniMapPortal}
+        pointerEvents="box-none"
+        collapsable={false}
+      >
+        <MiniMap
+          {...({
+            ...sharedMiniMapShell,
+            miniMap: minimapForUi,
+            expanded: mapExpanded,
+            androidHost: "portal" as const,
+            seedExpandLayout: androidSeedLayout,
+            mapDirections: isPageMiniMapType(minimapForUi.miniMapType)
+              ? mapDirections
+              : centeredMiniMapDirections,
+            ...(isPageMiniMapType(minimapForUi.miniMapType)
+              ? { betaSectionLookup, imageLookup, measurementsLookup }
+              : {}),
+          } as MiniMapProps)}
+        />
+      </View>
+    ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
     position: "relative",
@@ -527,12 +605,18 @@ const styles = StyleSheet.create({
     marginTop: 16,
     width: "100%",
     aspectRatio: 1,
+    position: "relative",
   },
   miniMapWrapClip: {
     overflow: "hidden",
     borderRadius: MINI_MAP_BORDER_RADIUS,
   },
   miniMapWrapExpanded: {
+    zIndex: MINI_MAP_EXPANDED_Z_INDEX,
+    elevation: 1000,
+  },
+  miniMapPortal: {
+    ...StyleSheet.absoluteFillObject,
     zIndex: MINI_MAP_EXPANDED_Z_INDEX,
     elevation: 1000,
   },

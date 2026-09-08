@@ -79,6 +79,7 @@ export const darkTheme: ThemeColors = {
   },
   map: {
     minimap: {
+      background: "#1a1a1a",
       title: {
         background: "#000000",
         shadow: "#ffffff",

@@ -506,10 +506,12 @@ export function CenteredRegionMiniMapView({
       ? geoErrorMessage
       : null;
 
-  const showDataLoadingOverlay =
+  const mapContentReady =
     shell.mountNativeMap &&
     blockingGeoErrorMessage == null &&
-    (onlineInitialLoading || offlineInitialLoading);
+    styleReady &&
+    !onlineInitialLoading &&
+    !offlineInitialLoading;
 
   useEffect(() => {
     shell.setBlockingErrorMessage(blockingGeoErrorMessage);
@@ -528,8 +530,8 @@ export function CenteredRegionMiniMapView({
   }, [reloadRegisterRef, reloadMinimap]);
 
   useEffect(() => {
-    shell.setLoadingOverlayVisible(showDataLoadingOverlay);
-  }, [showDataLoadingOverlay, shell.setLoadingOverlayVisible]);
+    shell.setMapContentReady(mapContentReady);
+  }, [mapContentReady, shell.setMapContentReady]);
 
   const { insets } = shell;
   const headerTop = insets.top + headerChrome.rowTopInset;
@@ -545,7 +547,10 @@ export function CenteredRegionMiniMapView({
         <MiniMapNativeGestureHost expanded={shell.expanded}>
         <MapView
           styleURL={mapLayers.styleUrl}
-          style={minimapStyles.map}
+          style={[
+            minimapStyles.map,
+            !shell.mapChromeInteractive ? { opacity: 0 } : null,
+          ]}
           projection="globe"
           onLayout={onMapLayout}
           {...miniMapInteractionProps(shell.expanded)}
@@ -660,68 +665,78 @@ export function CenteredRegionMiniMapView({
             title={miniMap.title}
             onBack={shell.requestCollapse}
             top={insets.top + headerChrome.rowTopInset}
+            chromeInteractive={shell.mapChromeInteractive}
           />
-          <RoutePreview
-            routeId={focusedRouteId}
-            containerStyle={[
-              miniMapHostStyles.previewContainer,
-              {
-                paddingBottom: routePreviewDockedPaddingBottom(
-                  insets.bottom,
-                  tabBarHeight,
-                ),
-              },
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              !shell.mapChromeInteractive ? expandedChromeStyles.chromeDimmed : null,
             ]}
-            routeType={
-              displayGeojson?.features?.find((f) => f.properties?.id === focusedRouteId)
-                ?.properties?.type ?? null
-            }
-            onCurrentPreviewChange={setCurrentPreview}
-            onPreviewPress={(preview) => {
-              if (preview.source === "ropewiki") {
-                router.push({
-                  pathname: "/(tabs)/explore/[id]/page",
-                  params: {
-                    id: preview.id,
-                    source: PageDataSource.Ropewiki,
-                  },
-                } as unknown as Parameters<typeof router.push>[0]);
-              } else {
-                router.push("/explore/technical-info");
+            pointerEvents={shell.mapChromeInteractive ? "box-none" : "none"}
+          >
+            <RoutePreview
+              routeId={focusedRouteId}
+              containerStyle={[
+                miniMapHostStyles.previewContainer,
+                {
+                  paddingBottom: routePreviewDockedPaddingBottom(
+                    shell.layoutHost === "portal" ? 0 : insets.bottom,
+                    shell.layoutHost === "portal" ? 0 : tabBarHeight,
+                  ),
+                },
+              ]}
+              routeType={
+                displayGeojson?.features?.find((f) => f.properties?.id === focusedRouteId)
+                  ?.properties?.type ?? null
               }
-            }}
-          />
-          <ButtonStack top={buttonStackTop}>
-            <ButtonStack.Slot id="map-layers" visible>
-              <MapLayersButton
-                stacked
-                customized={mapLayers.customized}
-                onPress={openMapLayersSheet}
-              />
-            </ButtonStack.Slot>
-            <ButtonStack.Slot id="bounds" visible={boundsResetButtonVisibleForStack}>
-              <ResetCameraToBoundsButton
-                stacked
-                onPress={resetToCenteredRouteHome}
-                visible={boundsResetButtonVisibleForStack}
-              />
-            </ButtonStack.Slot>
-            <ButtonStack.Slot id="orientation" visible={compassVisible}>
-              <ResetCameraOrientationButton
-                stacked
-                iconRotation={-cameraHeadingDeg}
-                onPress={() => resetPitchAndHeading()}
-                visible={compassVisible}
-              />
-            </ButtonStack.Slot>
-            <ButtonStack.Slot id="user-position" visible={userPositionButtonVisible}>
-              <ResetCameraToPositionButton
-                stacked
-                onPress={resetCameraToUserPosition}
-                visible={userPositionButtonVisible}
-              />
-            </ButtonStack.Slot>
-          </ButtonStack>
+              onCurrentPreviewChange={setCurrentPreview}
+              onPreviewPress={(preview) => {
+                if (preview.source === "ropewiki") {
+                  router.push({
+                    pathname: "/(tabs)/explore/[id]/page",
+                    params: {
+                      id: preview.id,
+                      source: PageDataSource.Ropewiki,
+                    },
+                  } as unknown as Parameters<typeof router.push>[0]);
+                } else {
+                  router.push("/explore/technical-info");
+                }
+              }}
+            />
+            <ButtonStack top={buttonStackTop}>
+              <ButtonStack.Slot id="map-layers" visible>
+                <MapLayersButton
+                  stacked
+                  customized={mapLayers.customized}
+                  onPress={openMapLayersSheet}
+                  disabled={!shell.mapChromeInteractive}
+                />
+              </ButtonStack.Slot>
+              <ButtonStack.Slot id="bounds" visible={boundsResetButtonVisibleForStack}>
+                <ResetCameraToBoundsButton
+                  stacked
+                  onPress={resetToCenteredRouteHome}
+                  visible={boundsResetButtonVisibleForStack}
+                />
+              </ButtonStack.Slot>
+              <ButtonStack.Slot id="orientation" visible={compassVisible}>
+                <ResetCameraOrientationButton
+                  stacked
+                  iconRotation={-cameraHeadingDeg}
+                  onPress={() => resetPitchAndHeading()}
+                  visible={compassVisible}
+                />
+              </ButtonStack.Slot>
+              <ButtonStack.Slot id="user-position" visible={userPositionButtonVisible}>
+                <ResetCameraToPositionButton
+                  stacked
+                  onPress={resetCameraToUserPosition}
+                  visible={userPositionButtonVisible}
+                />
+              </ButtonStack.Slot>
+            </ButtonStack>
+          </View>
         </Animated.View>
       ) : null}
     </>
@@ -732,5 +747,9 @@ const expandedChromeStyles = StyleSheet.create({
   layer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 3,
+    elevation: 4,
+  },
+  chromeDimmed: {
+    opacity: 0.45,
   },
 });

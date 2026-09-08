@@ -528,19 +528,16 @@ export function PageMiniMapView({
   }, [reloadRegisterRef, reloadMinimap]);
 
   useEffect(() => {
-    shell.setLoadingOverlayVisible(
+    shell.setMapContentReady(
       shell.mapBodyVisible &&
         mapBlockingErrorMessage == null &&
-        !mapFinishedLoading &&
-        (!isOfflineTiles || offlineTilesPrepared),
+        mapFinishedLoading,
     );
   }, [
-    isOfflineTiles,
     mapFinishedLoading,
     mapBlockingErrorMessage,
-    offlineTilesPrepared,
     shell.mapBodyVisible,
-    shell.setLoadingOverlayVisible,
+    shell.setMapContentReady,
   ]);
 
   const refreshTooltipScreenPosition = useCallback(async () => {
@@ -818,10 +815,16 @@ export function PageMiniMapView({
     () => expandedMiniMapOverlayEdgeGap(uiScale, fontScale),
     [uiScale, fontScale],
   );
-  /** Tab bar + scaled gap so the legend sits above the tab bar (same as docked RoutePreview). */
+  /** Tab bar + scaled gap so the legend sits above the tab bar (same as docked RoutePreview).
+   * Portal hosts already clear the tab bar — only keep the scaled gap. */
   const legendBottomOffset = useMemo(
-    () => expandedMiniMapOverlayBottomOffset(tabBarHeight, uiScale, fontScale),
-    [tabBarHeight, uiScale, fontScale],
+    () =>
+      expandedMiniMapOverlayBottomOffset(
+        shell.layoutHost === "portal" ? 0 : tabBarHeight,
+        uiScale,
+        fontScale,
+      ),
+    [shell.layoutHost, tabBarHeight, uiScale, fontScale],
   );
 
   const selectedLegendItem = useMemo(
@@ -938,19 +941,22 @@ export function PageMiniMapView({
     legendFootprint ?? 0,
     showRelevantInfo ? relevantFootprint ?? 0 : 0,
   );
+  /** Inline expand uses full window height; portal host is already above the tab bar. */
+  const overlayViewportHeight =
+    shell.layoutHost === "portal" ? windowHeight - tabBarHeight : windowHeight;
   const overlayTopY =
     overlayFootprint > 0
-      ? windowHeight - legendBottomOffset - overlayFootprint
+      ? overlayViewportHeight - legendBottomOffset - overlayFootprint
       : null;
   const focusPadding = useMemo(
     () =>
       focusCameraPadding({
         headerBottomY,
         overlayTopY,
-        windowHeight,
+        windowHeight: overlayViewportHeight,
         fallback: shell.expandedPadding,
       }),
-    [headerBottomY, overlayTopY, windowHeight, shell.expandedPadding],
+    [headerBottomY, overlayTopY, overlayViewportHeight, shell.expandedPadding],
   );
   const focusPaddingRef = useRef(focusPadding);
   focusPaddingRef.current = focusPadding;
@@ -1022,7 +1028,10 @@ export function PageMiniMapView({
             key={`${miniMapReloadKey}:offline-prepared`}
             ref={mapRef}
             styleURL={mapLayers.styleUrl}
-            style={minimapStyles.map}
+            style={[
+              minimapStyles.map,
+              !shell.mapChromeInteractive ? { opacity: 0 } : null,
+            ]}
             projection="globe"
             onLayout={onMapLayout}
             {...miniMapInteractionProps(shell.expanded)}
@@ -1150,81 +1159,91 @@ export function PageMiniMapView({
             onBack={shell.requestCollapse}
             top={headerTop}
             onHeaderHeightChange={setHeaderHeight}
+            chromeInteractive={shell.mapChromeInteractive}
           />
-          {hasPageLegend && miniMap.legend != null ? (
-            <MapLegendPanel
-              legend={miniMap.legend}
-              expanded={legendExpanded}
-              selectedKey={selectedSegmentKey}
-              scrollIntoViewEpoch={legendScrollIntoViewEpoch}
-              maxHeight={legendMaxH}
-              leftOffset={legendLeftOffset}
-              bottomOffset={legendBottomOffset}
-              rightInset={insets.right + overlayEdgeGap}
-              onToggleExpanded={() => setLegendExpanded((e) => !e)}
-              onSelectLegendId={handleLegendSelectSegment}
-              onExpandedFootprintChange={setLegendFootprint}
-            />
-          ) : null}
-          {pinnedRelevant != null ? (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                !showRelevantInfo ? styles.relevantInfoHidden : null,
-              ]}
-              pointerEvents={showRelevantInfo ? "box-none" : "none"}
-            >
-              <RelevantInfoPanel
-                content={pinnedRelevant.content}
-                legendItemName={
-                  showRelevantInfo && selectedLegendItem != null
-                    ? selectedLegendItem.name
-                    : pinnedRelevant.legendItemName
-                }
-                miniMapTitle={miniMap.title}
-                expanded={showRelevantInfo && relevantExpanded}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              !shell.mapChromeInteractive ? styles.chromeDimmed : null,
+            ]}
+            pointerEvents={shell.mapChromeInteractive ? "box-none" : "none"}
+          >
+            {hasPageLegend && miniMap.legend != null ? (
+              <MapLegendPanel
+                legend={miniMap.legend}
+                expanded={legendExpanded}
+                selectedKey={selectedSegmentKey}
+                scrollIntoViewEpoch={legendScrollIntoViewEpoch}
                 maxHeight={legendMaxH}
-                leftOffset={insets.left + overlayEdgeGap}
-                rightOffset={relevantInfoRightOffset}
+                leftOffset={legendLeftOffset}
                 bottomOffset={legendBottomOffset}
-                onToggleExpanded={() => setRelevantExpanded((e) => !e)}
-                onExpandedFootprintChange={
-                  showRelevantInfo ? setRelevantFootprint : undefined
-                }
+                rightInset={insets.right + overlayEdgeGap}
+                onToggleExpanded={() => setLegendExpanded((e) => !e)}
+                onSelectLegendId={handleLegendSelectSegment}
+                onExpandedFootprintChange={setLegendFootprint}
               />
-            </View>
-          ) : null}
-          <ButtonStack top={buttonStackTop}>
-            <ButtonStack.Slot id="map-layers" visible>
-              <MapLayersButton
-                stacked
-                customized={mapLayers.customized}
-                onPress={openMapLayersSheet}
-              />
-            </ButtonStack.Slot>
-            <ButtonStack.Slot id="bounds" visible={boundsResetButtonVisible}>
-              <ResetCameraToBoundsButton
-                stacked
-                onPress={resetPosition}
-                visible={boundsResetButtonVisible}
-              />
-            </ButtonStack.Slot>
-            <ButtonStack.Slot id="orientation" visible={compassVisible}>
-              <ResetCameraOrientationButton
-                stacked
-                iconRotation={-cameraHeadingDeg}
-                onPress={() => resetPitchAndHeading()}
-                visible={compassVisible}
-              />
-            </ButtonStack.Slot>
-            <ButtonStack.Slot id="user-position" visible={userPositionButtonVisible}>
-              <ResetCameraToPositionButton
-                stacked
-                onPress={resetCameraToUserPosition}
-                visible={userPositionButtonVisible}
-              />
-            </ButtonStack.Slot>
-          </ButtonStack>
+            ) : null}
+            {pinnedRelevant != null ? (
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  !showRelevantInfo ? styles.relevantInfoHidden : null,
+                ]}
+                pointerEvents={showRelevantInfo ? "box-none" : "none"}
+              >
+                <RelevantInfoPanel
+                  content={pinnedRelevant.content}
+                  legendItemName={
+                    showRelevantInfo && selectedLegendItem != null
+                      ? selectedLegendItem.name
+                      : pinnedRelevant.legendItemName
+                  }
+                  miniMapTitle={miniMap.title}
+                  expanded={showRelevantInfo && relevantExpanded}
+                  maxHeight={legendMaxH}
+                  leftOffset={insets.left + overlayEdgeGap}
+                  rightOffset={relevantInfoRightOffset}
+                  bottomOffset={legendBottomOffset}
+                  onToggleExpanded={() => setRelevantExpanded((e) => !e)}
+                  onExpandedFootprintChange={
+                    showRelevantInfo ? setRelevantFootprint : undefined
+                  }
+                />
+              </View>
+            ) : null}
+            <ButtonStack top={buttonStackTop}>
+              <ButtonStack.Slot id="map-layers" visible>
+                <MapLayersButton
+                  stacked
+                  customized={mapLayers.customized}
+                  onPress={openMapLayersSheet}
+                  disabled={!shell.mapChromeInteractive}
+                />
+              </ButtonStack.Slot>
+              <ButtonStack.Slot id="bounds" visible={boundsResetButtonVisible}>
+                <ResetCameraToBoundsButton
+                  stacked
+                  onPress={resetPosition}
+                  visible={boundsResetButtonVisible}
+                />
+              </ButtonStack.Slot>
+              <ButtonStack.Slot id="orientation" visible={compassVisible}>
+                <ResetCameraOrientationButton
+                  stacked
+                  iconRotation={-cameraHeadingDeg}
+                  onPress={() => resetPitchAndHeading()}
+                  visible={compassVisible}
+                />
+              </ButtonStack.Slot>
+              <ButtonStack.Slot id="user-position" visible={userPositionButtonVisible}>
+                <ResetCameraToPositionButton
+                  stacked
+                  onPress={resetCameraToUserPosition}
+                  visible={userPositionButtonVisible}
+                />
+              </ButtonStack.Slot>
+            </ButtonStack>
+          </View>
         </Animated.View>
       ) : null}
     </>
@@ -1254,5 +1273,8 @@ const styles = StyleSheet.create({
   /** Keep Relevant Info mounted but invisible when the current selection has no content. */
   relevantInfoHidden: {
     opacity: 0,
+  },
+  chromeDimmed: {
+    opacity: 0.45,
   },
 });

@@ -5,6 +5,7 @@ import { useTextStyle } from "@/context/typography/TextContext";
 import { useUiScale } from "@/context/typography/UIScaleContext";
 import { MiniMap } from "@/components/modals/minimap/MiniMap";
 import type { RoutesState } from "@/components/screens/explore/RouteMarkersLayer";
+import type { MiniMapExpandLayout } from "@/utils/minimap/useMiniMapAnimation";
 import { useNetworkStatus } from "@/context/app/NetworkStatusContext";
 import { RegionLinks } from "@/components/screens/pages/ropewiki/RegionLinks";
 import {
@@ -134,10 +135,16 @@ export function RegionContent({
   const lastScrollMetricsRef = useRef({ y: 0, contentH: 0, layoutH: 0 });
   const [previewsListNearBottom, setPreviewsListNearBottom] = useState(false);
   const miniMapGateRef = useRef<View>(null);
+  const contentRootRef = useRef<View>(null);
   const miniMapUnlockedRef = useRef(false);
   const [mountMiniMapNative, setMountMiniMapNative] = useState(false);
   const [mapMode, setMapMode] = useState<"collapsed" | "expanded">("collapsed");
   const mapExpanded = mapMode === "expanded";
+  /** Android only: expand/collapse hands MapView out of ScrollView for reliable gestures. */
+  const portalHandoff = Platform.OS === "android";
+  const [androidMapHost, setAndroidMapHost] = useState<"inline" | "portal">("inline");
+  const [androidSeedLayout, setAndroidSeedLayout] = useState<MiniMapExpandLayout | null>(null);
+  const [androidCollapseAfterSeed, setAndroidCollapseAfterSeed] = useState(false);
   const scrollIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const countsText = formatCounts(region.pageCount, region.regionCount);
@@ -161,8 +168,37 @@ export function RegionContent({
     miniMapUnlockedRef.current = false;
     setMountMiniMapNative(false);
     setMapMode("collapsed");
+    setAndroidMapHost("inline");
+    setAndroidSeedLayout(null);
+    setAndroidCollapseAfterSeed(false);
     onMapExpandedChangeRef.current?.(false);
   }, [regionId]);
+
+  const handleMiniMapCollapse = useCallback(() => {
+    setMapModeAndNotify("collapsed");
+    setAndroidMapHost("inline");
+    setAndroidSeedLayout(null);
+    setAndroidCollapseAfterSeed(false);
+  }, [setMapModeAndNotify]);
+
+  const onAndroidExpandToPortal = useCallback(
+    (layout: MiniMapExpandLayout) => {
+      setAndroidSeedLayout(layout);
+      setAndroidCollapseAfterSeed(false);
+      setAndroidMapHost("portal");
+      setMapModeAndNotify("expanded");
+    },
+    [setMapModeAndNotify],
+  );
+
+  const onAndroidCollapseToInline = useCallback((layout: MiniMapExpandLayout) => {
+    setAndroidSeedLayout(layout);
+    setAndroidCollapseAfterSeed(true);
+    setAndroidMapHost("inline");
+  }, []);
+
+  const showInlineMiniMap = !portalHandoff || androidMapHost === "inline";
+  const showPortalMiniMap = portalHandoff && androidMapHost === "portal";
 
   const checkMiniMapInView = useCallback(() => {
     if (!hasMiniMap) return;
@@ -318,7 +354,7 @@ export function RegionContent({
         const items = data ?? [];
         const loading = data === null && errors === null;
         return (
-          <>
+          <View ref={contentRootRef} style={styles.root} collapsable={false}>
           <AnimatedScrollView
             style={[styles.scrollView, mapExpanded && styles.scrollViewMapExpanded]}
             contentContainerStyle={{
@@ -417,18 +453,32 @@ export function RegionContent({
                         });
                       }}
                     >
-                      <MiniMap
-                        miniMap={regionMiniMap}
-                        regionId={regionId}
-                        source={PageDataSource.Ropewiki}
-                        mountNativeMap={mountMiniMapNative}
-                        expanded={mapExpanded}
-                        expandAnchorRef={expandAnchorRef}
-                        collapsedMeasureRef={miniMapGateRef}
-                        onExpand={() => setMapModeAndNotify("expanded")}
-                        onCollapse={() => setMapModeAndNotify("collapsed")}
-                        onRoutesStateChange={onRoutesStateChange}
-                      />
+                      {showInlineMiniMap ? (
+                        <MiniMap
+                          miniMap={regionMiniMap}
+                          regionId={regionId}
+                          source={PageDataSource.Ropewiki}
+                          mountNativeMap={mountMiniMapNative}
+                          expanded={mapExpanded}
+                          expandAnchorRef={expandAnchorRef}
+                          collapsedMeasureRef={miniMapGateRef}
+                          portalMeasureRef={contentRootRef}
+                          androidHost="inline"
+                          seedExpandLayout={
+                            androidCollapseAfterSeed ? androidSeedLayout : null
+                          }
+                          collapseAfterSeed={androidCollapseAfterSeed}
+                          onExpand={() => setMapModeAndNotify("expanded")}
+                          onCollapse={handleMiniMapCollapse}
+                          onAndroidExpandToPortal={
+                            portalHandoff ? onAndroidExpandToPortal : undefined
+                          }
+                          onAndroidCollapseToInline={
+                            portalHandoff ? onAndroidCollapseToInline : undefined
+                          }
+                          onRoutesStateChange={onRoutesStateChange}
+                        />
+                      ) : null}
                     </View>
                   ) : null}
                 </View>
@@ -485,7 +535,32 @@ export function RegionContent({
               </View>
             </View>
           </AnimatedScrollView>
-          </>
+          {showPortalMiniMap && regionMiniMap != null ? (
+            <View
+              style={styles.miniMapPortal}
+              pointerEvents="box-none"
+              collapsable={false}
+            >
+              <MiniMap
+                miniMap={regionMiniMap}
+                regionId={regionId}
+                source={PageDataSource.Ropewiki}
+                mountNativeMap={mountMiniMapNative}
+                expanded={mapExpanded}
+                expandAnchorRef={expandAnchorRef}
+                collapsedMeasureRef={miniMapGateRef}
+                portalMeasureRef={contentRootRef}
+                androidHost="portal"
+                seedExpandLayout={androidSeedLayout}
+                onExpand={() => setMapModeAndNotify("expanded")}
+                onCollapse={handleMiniMapCollapse}
+                onAndroidExpandToPortal={onAndroidExpandToPortal}
+                onAndroidCollapseToInline={onAndroidCollapseToInline}
+                onRoutesStateChange={onRoutesStateChange}
+              />
+            </View>
+          ) : null}
+          </View>
         );
       }}
     </RopeGeoPagedDataLoader>
@@ -493,6 +568,9 @@ export function RegionContent({
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
     /** Always above the absolute banner layer. */
@@ -536,6 +614,11 @@ const styles = StyleSheet.create({
     borderRadius: MINI_MAP_BORDER_RADIUS,
   },
   miniMapWrapExpanded: {
+    zIndex: MINI_MAP_EXPANDED_Z_INDEX,
+    elevation: 1000,
+  },
+  miniMapPortal: {
+    ...StyleSheet.absoluteFillObject,
     zIndex: MINI_MAP_EXPANDED_Z_INDEX,
     elevation: 1000,
   },

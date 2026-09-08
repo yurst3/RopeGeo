@@ -79,6 +79,7 @@ export const lightTheme: ThemeColors = {
   },
   map: {
     minimap: {
+      background: "#f2f2f2",
       title: {
         background: "#ffffff",
         shadow: "#000000",

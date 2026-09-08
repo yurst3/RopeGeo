@@ -43,6 +43,8 @@ export function MiniMapHeader({
   rightSlot,
   top,
   onHeaderHeightChange,
+  /** When false, title (and right slot) look inert; back stays enabled. */
+  chromeInteractive = true,
 }: {
   title: string;
   onBack: () => void;
@@ -50,6 +52,7 @@ export function MiniMapHeader({
   top: number;
   /** Reports the header row height (row bottom = `top` + height) for camera framing. */
   onHeaderHeightChange?: (height: number) => void;
+  chromeInteractive?: boolean;
 }) {
   const themeColors = useColorTheme();
   const uiScale = useUiScale();
@@ -67,6 +70,7 @@ export function MiniMapHeader({
         minHeight: headerChrome.buttonWrapHeight,
         paddingVertical: headerChrome.titleBarPaddingVertical,
         paddingHorizontal: headerChrome.titleBarPaddingHorizontal,
+        opacity: chromeInteractive ? 1 : 0.45,
       },
     ],
     [
@@ -75,6 +79,7 @@ export function MiniMapHeader({
       headerChrome.buttonWrapHeight,
       headerChrome.titleBarPaddingVertical,
       headerChrome.titleBarPaddingHorizontal,
+      chromeInteractive,
     ],
   );
 
@@ -111,7 +116,7 @@ export function MiniMapHeader({
       >
         <BackButton onPress={onBack} />
       </View>
-      <View style={titleBarStyle}>
+      <View style={titleBarStyle} pointerEvents="none">
         <ScalingText
           size={uiScale.map.text.title}
           typography={textStyle.map.title}
@@ -122,7 +127,14 @@ export function MiniMapHeader({
           {title}
         </ScalingText>
       </View>
-      {rightSlot ?? (
+      {rightSlot != null ? (
+        <View
+          pointerEvents={chromeInteractive ? "box-none" : "none"}
+          style={chromeInteractive ? undefined : styles.chromeDimmed}
+        >
+          {rightSlot}
+        </View>
+      ) : (
         <View style={{ width: headerChrome.sideSlotWidth }} />
       )}
     </View>
@@ -148,6 +160,9 @@ const styles = StyleSheet.create({
   headerSideSlotsRow: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  chromeDimmed: {
+    opacity: 0.45,
   },
   titleBar: {
     flex: 1,

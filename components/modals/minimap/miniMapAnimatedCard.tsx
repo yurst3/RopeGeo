@@ -4,10 +4,16 @@ import {
   minimapStyles,
 } from "@/components/modals/minimap/shared/minimapShared";
 import {
+  measureInlineExpandLayout,
+  measurePortalExpandLayout,
+} from "@/utils/minimap/measureMiniMapExpandLayout";
+import {
   type MiniMapExpandLayout,
   useMiniMapAnimation,
 } from "@/utils/minimap/useMiniMapAnimation";
+import { MiniMapMountLoadingOverlay } from "@/components/modals/minimap/MiniMapMountLoadingOverlay";
 import { PlaceholderMiniMap } from "@/components/modals/minimap/PlaceholderMiniMap";
+import { useColorTheme } from "@/context/theme/ColorThemeContext";
 import { useUiScaleProfileKey } from "@/context/typography/UIScaleContext";
 import {
   createContext,
@@ -23,16 +29,24 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { BackHandler, Dimensions, StyleSheet, useWindowDimensions, View } from "react-native";
+import { BackHandler, Platform, StyleSheet, useWindowDimensions, View } from "react-native";
 import Animated from "react-native-reanimated";
 import type { EdgeInsets } from "react-native-safe-area-context";
 
 /** Frames of post-layout remeasurement after uiScale/window changes while expanded. */
 const EXPAND_LAYOUT_STABILIZE_FRAMES = 12;
 
+/** Android only: expand/collapse hands MapView out of ScrollView for reliable gestures. */
+const EXPAND_PORTAL_HANDOFF = Platform.OS === "android";
+
 export type MiniMapShellApi = {
   mountNativeMap: boolean;
   expanded: boolean;
+  /**
+   * `portal` hosts sit in the tab screen above the tab bar; bottom chrome must not
+   * add another tab-bar offset. `inline` expanded maps use full-window bounds and do.
+   */
+  layoutHost: "inline" | "portal";
   /** Starts collapse animation. */
   requestCollapse: () => void;
   /** Clears measured expand/collapse layout after collapsed camera is applied. */
@@ -44,7 +58,15 @@ export type MiniMapShellApi = {
   expandedPadding: ReturnType<typeof useMiniMapAnimation>["expandedPadding"];
   insets: EdgeInsets;
   setBlockingErrorMessage: (message: string | null) => void;
-  setLoadingOverlayVisible: (visible: boolean) => void;
+  /**
+   * Children report when the native MapView has finished mounting/loading.
+   * Until then the shell keeps {@link MiniMapMountLoadingOverlay} up.
+   */
+  setMapContentReady: (ready: boolean) => void;
+  /** True after MapView finished loading; drives overlay dismissal and chrome interactivity. */
+  mapContentReady: boolean;
+  /** False until MapView content is ready — chrome stays visible but inert (except back). */
+  mapChromeInteractive: boolean;
   registerCollapseCleanup: (fn: (() => void) | null) => void;
 };
 
@@ -59,12 +81,6 @@ export function useMiniMapShell(): MiniMapShellApi {
 }
 
 const mapLoadingOverlayStyles = StyleSheet.create({
-  overlay: {
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(229, 231, 235, 0.92)",
-    borderRadius: minimapStyles.map.borderRadius,
-  },
   placeholderCover: {
     zIndex: 2,
     justifyContent: "center",
@@ -87,47 +103,30 @@ type MiniMapAnimatedCardProps = {
   onExpand: () => void;
   onCollapse: () => void;
   mapDirections?: { lat: number; lon: number } | null;
+  /**
+   * Android only: host currently rendering this card.
+   * `inline` = inside ScrollView; `portal` = absolute overlay outside ScrollView.
+   */
+  androidHost?: "inline" | "portal";
+  /** Screen/portal root used to measure portal frames before the portal mounts. */
+  portalMeasureRef?: RefObject<View | null>;
+  /** Seeded layout when mounting into a host mid expand/collapse handoff. */
+  seedExpandLayout?: MiniMapExpandLayout | null;
+  /** After seeding as expanded (inline), immediately play collapse (Android handoff). */
+  collapseAfterSeed?: boolean;
+  /** Android: parent should mount the portal host with this layout and set expanded. */
+  onAndroidExpandToPortal?: (layout: MiniMapExpandLayout) => void;
+  /** Android: parent should remount inline with this layout and run collapse. */
+  onAndroidCollapseToInline?: (layout: MiniMapExpandLayout) => void;
   children: ReactNode;
 };
-
-/** Measures expand/collapse rects in gate (collapsedMeasureRef) coordinates for absolute animation. */
-function measureExpandLayout(
-  expandAnchorRef: RefObject<View | null>,
-  collapsedMeasureRef: RefObject<View | null>,
-): Promise<MiniMapExpandLayout | null> {
-  return new Promise((resolve) => {
-    const anchor = expandAnchorRef.current;
-    const collapsedNode = collapsedMeasureRef.current;
-    if (anchor == null || collapsedNode == null) {
-      resolve(null);
-      return;
-    }
-    anchor.measureInWindow((ax, ay) => {
-      collapsedNode.measureInWindow((cx, cy, cw, ch) => {
-        const { width: windowWidth, height: windowHeight } = Dimensions.get("window");
-        const layout = {
-          collapsed: {
-            x: 0,
-            y: 0,
-            width: cw,
-            height: ch,
-          },
-          expanded: {
-            x: ax - cx,
-            y: ay - cy,
-            width: windowWidth,
-            height: windowHeight,
-          },
-        };
-        resolve(layout);
-      });
-    });
-  });
-}
 
 /**
  * Shared minimap chrome: overlay host layout, expand/collapse animation, placeholder + loading overlays,
  * and collapsed expand/directions controls. Variants sync blocking/loading via {@link useMiniMapShell}.
+ *
+ * On Android, expand/collapse can hand off between an in-ScrollView instance and a portal instance
+ * so gestures are not nested under ScrollView while fullscreen.
  */
 export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMapAnimatedCardProps>(
   function MiniMapAnimatedCard(
@@ -139,18 +138,47 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
       onExpand,
       onCollapse,
       mapDirections,
+      androidHost = "inline",
+      portalMeasureRef,
+      seedExpandLayout = null,
+      collapseAfterSeed = false,
+      onAndroidExpandToPortal,
+      onAndroidCollapseToInline,
       children,
     },
     ref,
   ) {
     const [blockingErrorMessage, setBlockingErrorMessage] = useState<string | null>(null);
-    const [loadingOverlayVisible, setLoadingOverlayVisible] = useState(false);
+    // Fresh instances (incl. portal/inline handoff) start covered until children report ready.
+    const [mapContentReady, setMapContentReadyState] = useState(false);
+    /** Covers the still-mounted host from expand/collapse press until handoff remounts. */
+    const [forceMountCover, setForceMountCover] = useState(false);
     const [layoutReady, setLayoutReady] = useState(false);
-    const [expandLayout, setExpandLayout] = useState<MiniMapExpandLayout | null>(null);
-    const [collapseGeneration, setCollapseGeneration] = useState(0);
+    const [expandLayout, setExpandLayout] = useState<MiniMapExpandLayout | null>(
+      seedExpandLayout,
+    );
+    const [collapseGeneration, setCollapseGeneration] = useState(
+      collapseAfterSeed && seedExpandLayout != null ? 1 : 0,
+    );
     const collapseCleanupRef = useRef<(() => void) | null>(null);
     const pendingExpandRef = useRef(false);
-    const collapseInFlightRef = useRef(false);
+    const collapseInFlightRef = useRef(collapseAfterSeed);
+    const collapseAfterSeedStartedRef = useRef(
+      collapseAfterSeed && seedExpandLayout != null,
+    );
+    const playExpandOnMount =
+      EXPAND_PORTAL_HANDOFF &&
+      androidHost === "portal" &&
+      seedExpandLayout != null &&
+      expanded &&
+      !collapseAfterSeed;
+
+    const setMapContentReady = useCallback((ready: boolean) => {
+      setMapContentReadyState(ready);
+      if (ready) {
+        setForceMountCover(false);
+      }
+    }, []);
 
     const registerCollapseCleanup = useCallback((fn: (() => void) | null) => {
       collapseCleanupRef.current = fn;
@@ -163,13 +191,20 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
       collapseCleanupRef.current?.();
     }, [onCollapse]);
 
+    const measureForCurrentHost = useCallback(() => {
+      if (androidHost === "portal" && portalMeasureRef != null) {
+        return measurePortalExpandLayout(portalMeasureRef, collapsedMeasureRef);
+      }
+      return measureInlineExpandLayout(expandAnchorRef, collapsedMeasureRef);
+    }, [androidHost, collapsedMeasureRef, expandAnchorRef, portalMeasureRef]);
+
     const remeasureLayout = useCallback(() => {
-      void measureExpandLayout(expandAnchorRef, collapsedMeasureRef).then((layout) => {
+      void measureForCurrentHost().then((layout) => {
         if (layout != null) {
           setExpandLayout(layout);
         }
       });
-    }, [collapsedMeasureRef, expandAnchorRef]);
+    }, [measureForCurrentHost]);
 
     useImperativeHandle(ref, () => ({ remeasureLayout }), [remeasureLayout]);
 
@@ -179,8 +214,28 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
 
     const requestCollapse = useCallback(() => {
       if (!expanded || collapseInFlightRef.current) return;
+
+      if (
+        EXPAND_PORTAL_HANDOFF &&
+        androidHost === "portal" &&
+        onAndroidCollapseToInline != null
+      ) {
+        // Cover the still-mounted portal while measuring; inline remount starts covered.
+        setForceMountCover(true);
+        collapseInFlightRef.current = true;
+        void measureInlineExpandLayout(expandAnchorRef, collapsedMeasureRef).then((layout) => {
+          if (layout == null) {
+            setForceMountCover(false);
+            finishCollapse();
+            return;
+          }
+          onAndroidCollapseToInline(layout);
+        });
+        return;
+      }
+
       collapseInFlightRef.current = true;
-      void measureExpandLayout(expandAnchorRef, collapsedMeasureRef).then((layout) => {
+      void measureForCurrentHost().then((layout) => {
         if (layout == null) {
           finishCollapse();
           return;
@@ -189,34 +244,52 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
         setCollapseGeneration((g) => g + 1);
       });
     }, [
+      androidHost,
       collapsedMeasureRef,
       expandAnchorRef,
       expanded,
       finishCollapse,
+      measureForCurrentHost,
+      onAndroidCollapseToInline,
     ]);
 
     const uiScaleProfileKey = useUiScaleProfileKey();
     const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    const { map } = useColorTheme();
 
     const { cardStyle, expandedChromeStyle, expandedPadding, insets } = useMiniMapAnimation({
       expandLayout,
       expanded,
       collapseGeneration,
       onCollapseAnimationComplete: finishCollapse,
+      playExpandOnMount,
     });
 
     const mapBodyVisible = mountNativeMap && blockingErrorMessage == null;
     const showPlaceholder = !mapBodyVisible;
+    const showMountLoadingOverlay =
+      mapBodyVisible && (!mapContentReady || forceMountCover);
 
     useEffect(() => {
       if (!expanded) return;
+      // Portal→inline handoff keeps collapseInFlight true across remount.
+      if (collapseAfterSeed) return;
       collapseInFlightRef.current = false;
-    }, [expanded]);
+    }, [expanded, collapseAfterSeed]);
+
+    useEffect(() => {
+      if (!collapseAfterSeed || collapseAfterSeedStartedRef.current) return;
+      if (expandLayout == null) return;
+      collapseAfterSeedStartedRef.current = true;
+      collapseInFlightRef.current = true;
+      setCollapseGeneration((g) => g + 1);
+    }, [collapseAfterSeed, expandLayout]);
 
     useEffect(() => {
       if (!mountNativeMap) {
         setBlockingErrorMessage(null);
-        setLoadingOverlayVisible(false);
+        setMapContentReadyState(false);
+        setForceMountCover(false);
       }
     }, [mountNativeMap]);
 
@@ -242,17 +315,15 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
     const mountNativeMapRef = useRef(mountNativeMap);
     mountNativeMapRef.current = mountNativeMap;
 
-    /**
-     * Gate window Y can move after uiScale reflow (siblings above the map change height)
-     * without the gate receiving onLayout. Remeasure across several animation frames so
-     * expand rects stay pinned once layout settles.
-     */
     useLayoutEffect(() => {
       if (!expandedRef.current || !mountNativeMapRef.current) return;
+      // Portal→inline collapse handoff: don't remount layout and fight the collapse timeline.
+      if (collapseAfterSeed || collapseInFlightRef.current) return;
       let cancelled = false;
       let frame = 0;
       const tick = () => {
         if (cancelled) return;
+        if (collapseInFlightRef.current) return;
         remeasureLayout();
         frame += 1;
         if (frame < EXPAND_LAYOUT_STABILIZE_FRAMES) {
@@ -263,16 +334,40 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
       return () => {
         cancelled = true;
       };
-    }, [uiScaleProfileKey, windowWidth, windowHeight, remeasureLayout]);
+    }, [uiScaleProfileKey, windowWidth, windowHeight, remeasureLayout, collapseAfterSeed]);
 
     const handleExpandPress = useCallback(() => {
-      void measureExpandLayout(expandAnchorRef, collapsedMeasureRef).then((layout) => {
+      if (
+        EXPAND_PORTAL_HANDOFF &&
+        androidHost === "inline" &&
+        onAndroidExpandToPortal != null &&
+        portalMeasureRef != null
+      ) {
+        // Cover inline while measuring; portal remount starts covered.
+        setForceMountCover(true);
+        void measurePortalExpandLayout(portalMeasureRef, collapsedMeasureRef).then((layout) => {
+          if (layout != null) {
+            onAndroidExpandToPortal(layout);
+          } else {
+            setForceMountCover(false);
+          }
+        });
+        return;
+      }
+
+      void measureForCurrentHost().then((layout) => {
         if (layout != null) {
           setExpandLayout(layout);
           pendingExpandRef.current = true;
         }
       });
-    }, [collapsedMeasureRef, expandAnchorRef]);
+    }, [
+      androidHost,
+      collapsedMeasureRef,
+      measureForCurrentHost,
+      onAndroidExpandToPortal,
+      portalMeasureRef,
+    ]);
 
     useEffect(() => {
       if (!expanded) return;
@@ -287,6 +382,7 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
       (): MiniMapShellApi => ({
         mountNativeMap,
         expanded,
+        layoutHost: androidHost,
         requestCollapse,
         settleCollapsedLayout,
         layoutReady,
@@ -295,12 +391,15 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
         expandedPadding,
         insets,
         setBlockingErrorMessage,
-        setLoadingOverlayVisible,
+        setMapContentReady,
+        mapContentReady,
+        mapChromeInteractive: mapContentReady && !forceMountCover,
         registerCollapseCleanup,
       }),
       [
         mountNativeMap,
         expanded,
+        androidHost,
         requestCollapse,
         settleCollapsedLayout,
         layoutReady,
@@ -308,6 +407,9 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
         expandedChromeStyle,
         expandedPadding,
         insets,
+        mapContentReady,
+        forceMountCover,
+        setMapContentReady,
         registerCollapseCleanup,
       ],
     );
@@ -315,7 +417,12 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
     return (
       <MiniMapShellContext.Provider value={shellApi}>
         <Animated.View
-          style={[styles.mapCard, cardStyle, expanded && styles.expandedCard]}
+          style={[
+            styles.mapCard,
+            { backgroundColor: map.minimap.background },
+            cardStyle,
+            expanded && styles.expandedCard,
+          ]}
           pointerEvents={expanded ? "auto" : "box-none"}
           collapsable={false}
           onLayout={(e) => {
@@ -330,28 +437,20 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
                 style={[
                   StyleSheet.absoluteFill,
                   mapLoadingOverlayStyles.placeholderCover,
-                  minimapStyles.mapPlaceholder,
                 ]}
                 pointerEvents="auto"
               >
-                <View style={[minimapStyles.map, minimapStyles.mapPlaceholder]} pointerEvents="none">
-                  <PlaceholderMiniMap
-                    errorMessage={
-                      mountNativeMap && blockingErrorMessage != null
-                        ? blockingErrorMessage
-                        : undefined
-                    }
-                  />
-                </View>
+                {mountNativeMap && blockingErrorMessage != null ? (
+                  <View style={[minimapStyles.map, minimapStyles.mapPlaceholder]} pointerEvents="none">
+                    <PlaceholderMiniMap errorMessage={blockingErrorMessage} />
+                  </View>
+                ) : (
+                  <MiniMapMountLoadingOverlay />
+                )}
               </View>
             ) : null}
-            {!showPlaceholder && loadingOverlayVisible ? (
-              <View
-                style={[StyleSheet.absoluteFill, mapLoadingOverlayStyles.overlay]}
-                pointerEvents="none"
-              >
-                <PlaceholderMiniMap />
-              </View>
+            {!showPlaceholder && showMountLoadingOverlay ? (
+              <MiniMapMountLoadingOverlay />
             ) : null}
           </View>
           {!expanded && layoutReady && mapDirections != null ? (
@@ -369,7 +468,6 @@ export const MiniMapAnimatedCard = forwardRef<MiniMapAnimatedCardHandle, MiniMap
 const styles = StyleSheet.create({
   mapCard: {
     overflow: "hidden",
-    backgroundColor: "#e5e7eb",
   },
   expandedCard: {
     elevation: 8,

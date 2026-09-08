@@ -87,6 +87,8 @@ export type MapLegendPanelProps = {
    * expanded) so the parent can frame the camera above the overlay row.
    */
   onExpandedFootprintChange?: (height: number) => void;
+  /** When false, panel stays visible but does not accept presses. */
+  interactive?: boolean;
 };
 
 function PointMarkerSwatch({
@@ -226,6 +228,7 @@ export function MapLegendPanel({
   onToggleExpanded,
   onSelectLegendId,
   onExpandedFootprintChange,
+  interactive = true,
 }: MapLegendPanelProps) {
   const themeColors = useColorTheme();
   const overlayColors = useMapOverlayColors();
@@ -354,8 +357,9 @@ export function MapLegendPanel({
       style={[
         styles.anchor,
         { bottom: bottomOffset, left: leftOffset, right: rightInset },
+        !interactive ? styles.dimmed : null,
       ]}
-      pointerEvents="box-none"
+      pointerEvents={interactive ? "box-none" : "none"}
     >
       <View style={cardStyle}>
         <Pressable
@@ -448,6 +452,9 @@ const styles = StyleSheet.create({
   anchor: {
     position: "absolute",
     zIndex: 50,
+  },
+  dimmed: {
+    opacity: 0.45,
   },
   card: {
     width: "100%",

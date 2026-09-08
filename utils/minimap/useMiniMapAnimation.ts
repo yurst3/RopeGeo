@@ -32,6 +32,8 @@ export function useMiniMapAnimation({
   expanded,
   collapseGeneration,
   onCollapseAnimationComplete,
+  /** Portal mount: `expanded` is already true — start at 0 and animate open. */
+  playExpandOnMount = false,
 }: {
   expandLayout: MiniMapExpandLayout | null;
   expanded: boolean;
@@ -39,6 +41,7 @@ export function useMiniMapAnimation({
   collapseGeneration: number;
   /** Fired when collapse timing reaches 0 while still in expanded mode. */
   onCollapseAnimationComplete?: () => void;
+  playExpandOnMount?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const uiScale = useUiScale();
@@ -52,9 +55,13 @@ export function useMiniMapAnimation({
   const endTopSv = useSharedValue(expandLayout?.expanded.y ?? 0);
   const endWidthSv = useSharedValue(expandLayout?.expanded.width ?? windowWidth);
   const endHeightSv = useSharedValue(expandLayout?.expanded.height ?? windowHeight);
-  const progressSv = useSharedValue(expanded ? 1 : 0);
-  const prevExpandedRef = useRef(expanded);
+  const progressSv = useSharedValue(
+    playExpandOnMount ? 0 : expanded ? 1 : 0,
+  );
+  const prevExpandedRef = useRef(playExpandOnMount ? false : expanded);
   const lastCollapseGenerationRef = useRef(0);
+  /** True from the moment a collapse generation is claimed until `expanded` becomes false. */
+  const collapseInFlightRef = useRef(false);
 
   const expandedPadding = useMemo(
     () => boundsPaddingForFullScreenMapScaled(insets, uiScale, fontScale),
@@ -108,6 +115,14 @@ export function useMiniMapAnimation({
     const easing = Easing.out(Easing.cubic);
 
     if (expanded) {
+      // Queued collapse (generation not claimed yet) or active collapse — never restart expand.
+      // Remeasure / portal→inline seed handoff used to fight collapse and leave the map stuck open.
+      if (
+        collapseInFlightRef.current ||
+        collapseGeneration > lastCollapseGenerationRef.current
+      ) {
+        return;
+      }
       if (!expandLayout) return;
       const hasLayout =
         expandLayout.collapsed.width > 0 && expandLayout.collapsed.height > 0;
@@ -132,8 +147,10 @@ export function useMiniMapAnimation({
     }
 
     if (!changedMode) return;
+    collapseInFlightRef.current = false;
     progressSv.value = 0;
   }, [
+    collapseGeneration,
     expandLayout,
     expanded,
     endHeightSv,
@@ -153,6 +170,7 @@ export function useMiniMapAnimation({
     if (!expandLayout) return;
 
     lastCollapseGenerationRef.current = collapseGeneration;
+    collapseInFlightRef.current = true;
     const duration = MINI_MAP_ANIMATION_MS;
     const collapseEasing = Easing.in(Easing.cubic);
 

@@ -10,11 +10,13 @@ export function MapLayersButton({
   onPress,
   customized = false,
   stacked = false,
+  disabled = false,
 }: {
   onPress: () => void;
   /** Solid asset + highlight tint when map layers differ from defaults. */
   customized?: boolean;
   stacked?: boolean;
+  disabled?: boolean;
 }) {
   const themeColors = useColorTheme();
   const buttonColors = themeColors.button.standard[MAP_LAYERS_BUTTON_KEY];
@@ -39,6 +41,7 @@ export function MapLayersButton({
       iconColorHighlight={buttonColors.iconHighlight}
       highlighted={customized}
       iconScale={iconScale}
+      disabled={disabled}
       accessibilityLabel="Map layers"
     />
   );

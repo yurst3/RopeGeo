@@ -172,6 +172,8 @@ export type MiniMapLegendColors = {
 };
 
 export type MiniMapColors = {
+  /** Full-bleed mount/handoff loading cover behind chrome. */
+  background: string;
   title: MiniMapTitleColors;
   legend: MiniMapLegendColors;
 };
